@@ -70,20 +70,20 @@ export default function WorkoutDetailPage() {
 
                 <div className="bg-white border border-gray-200 rounded-lg shadow-md p-6 mb-6">
                     <div className="flex justify-between items-start mb-6">
-                        <div>
-                            <h1 className="text-3xl font-heading font-bold mb-2">
-                                {workout.name || 'Workout'}
-                            </h1>
-                            <p className="text-gray-600">
-                                {format(new Date(workout.date), 'MMMM d, yyyy')}
-                            </p>
-                        </div>
-                        <button
-                            onClick={handleDelete}
-                            className="text-red-600 hover:text-red-800 text-sm font-semibold"
-                        >
-                            Delete
-                        </button>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-heading font-bold mb-2 break-words">
+                {workout.name || 'Workout'}
+              </h1>
+              <p className="text-gray-600 text-sm sm:text-base">
+                {format(new Date(workout.date), 'MMMM d, yyyy')}
+              </p>
+            </div>
+            <button
+              onClick={handleDelete}
+              className="text-red-600 hover:text-red-800 text-sm font-semibold px-3 py-2 min-h-[44px] flex items-center"
+            >
+              Delete
+            </button>
                     </div>
 
                     {workout.imageUrl && (

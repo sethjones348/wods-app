@@ -229,7 +229,7 @@ export default function WorkoutEditor({
             />
             <button
               onClick={handleAddMovement}
-              className="bg-cf-red text-white px-4 py-2 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all"
+              className="bg-cf-red text-white px-4 py-2 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all min-h-[44px]"
             >
               Add
             </button>
@@ -278,7 +278,7 @@ export default function WorkoutEditor({
                     <span>{movement}</span>
                     <button
                       onClick={() => handleStartEditMovement(index)}
-                      className="text-cf-red hover:text-cf-red-hover ml-2"
+                      className="text-cf-red hover:text-cf-red-hover ml-2 p-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
                       title="Edit movement"
                     >
                       <svg
@@ -296,13 +296,13 @@ export default function WorkoutEditor({
                       </svg>
                     </button>
                     <div className="flex-1"></div>
-                    <button
-                      onClick={() => handleRemoveMovement(index)}
-                      className="text-red-600 hover:text-red-800"
-                      title="Remove movement"
-                    >
-                      Remove
-                    </button>
+                      <button
+                        onClick={() => handleRemoveMovement(index)}
+                        className="text-red-600 hover:text-red-800 px-2 py-1 min-h-[32px]"
+                        title="Remove movement"
+                      >
+                        Remove
+                      </button>
                   </>
                 )}
               </div>
@@ -331,7 +331,7 @@ export default function WorkoutEditor({
                   />
                   <button
                     onClick={() => handleRemoveTime(index)}
-                    className="text-red-600 hover:text-red-800 px-2 py-1 text-sm font-semibold"
+                    className="text-red-600 hover:text-red-800 px-2 py-1 text-sm font-semibold min-w-[32px] min-h-[32px] flex items-center justify-center"
                     title="Remove this round"
                   >
                     ×
@@ -369,7 +369,7 @@ export default function WorkoutEditor({
                   />
                   <button
                     onClick={() => handleRemoveRep(index)}
-                    className="text-red-600 hover:text-red-800 px-2 py-1 text-sm font-semibold"
+                    className="text-red-600 hover:text-red-800 px-2 py-1 text-sm font-semibold min-w-[32px] min-h-[32px] flex items-center justify-center"
                     title="Remove this round"
                   >
                     ×
@@ -401,11 +401,11 @@ export default function WorkoutEditor({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row gap-4 pt-4">
           <button
             onClick={() => onSave(formData)}
             disabled={isSaving}
-            className="flex-1 bg-cf-red text-white px-6 py-3 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="flex-1 bg-cf-red text-white px-6 py-3 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[44px]"
           >
             {isSaving ? (
               <>
@@ -438,7 +438,7 @@ export default function WorkoutEditor({
           <button
             onClick={onCancel}
             disabled={isSaving}
-            className="flex-1 bg-transparent border-2 border-gray-300 text-gray-700 px-6 py-3 rounded font-semibold uppercase tracking-wider hover:border-gray-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-transparent border-2 border-gray-300 text-gray-700 px-6 py-3 rounded font-semibold uppercase tracking-wider hover:border-gray-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
           >
             Cancel
           </button>

@@ -79,7 +79,7 @@ export default function ImageUpload({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`border-3 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer ${
+      className={`border-3 border-dashed rounded-lg p-6 sm:p-12 text-center transition-all cursor-pointer ${
         isDragging
           ? 'border-cf-red bg-red-50'
           : 'border-gray-300 bg-gray-50 hover:border-cf-red hover:bg-white'
@@ -94,16 +94,16 @@ export default function ImageUpload({
         className="hidden"
       />
 
-      <div className="text-5xl mb-4">📸</div>
-      <h3 className="text-xl font-heading font-bold mb-2">
+      <div className="text-4xl sm:text-5xl mb-4">📸</div>
+      <h3 className="text-lg sm:text-xl font-heading font-bold mb-2">
         Upload Workout Photo
       </h3>
-      <p className="text-gray-600 mb-4">
+      <p className="text-sm sm:text-base text-gray-600 mb-4 px-2">
         Drag and drop your whiteboard photo here, or click to browse
       </p>
       <button
         type="button"
-        className="bg-cf-red text-white px-6 py-3 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all"
+        className="bg-cf-red text-white px-6 py-3 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all min-h-[44px]"
       >
         Choose File
       </button>

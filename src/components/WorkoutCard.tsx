@@ -10,11 +10,11 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
   return (
     <Link to={`/workout/${workout.id}`}>
       <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer">
-        <div className="flex justify-between items-start mb-4">
-          <h3 className="text-xl font-heading font-bold text-black">
-            {workout.name || 'Workout'}
+        <div className="flex justify-between items-start mb-4 gap-2">
+          <h3 className="text-lg sm:text-xl font-heading font-bold text-black flex-1 min-w-0">
+            <span className="truncate block">{workout.name || 'Workout'}</span>
           </h3>
-          <span className="text-sm text-gray-600 uppercase tracking-wider">
+          <span className="text-xs sm:text-sm text-gray-600 uppercase tracking-wider flex-shrink-0">
             {format(new Date(workout.date), 'MMM d')}
           </span>
         </div>

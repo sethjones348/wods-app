@@ -6,7 +6,7 @@ function LoginButton() {
   return (
     <button
       onClick={login}
-      className="bg-cf-red text-white px-8 py-4 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all hover:-translate-y-1 hover:shadow-lg"
+      className="bg-cf-red text-white px-6 sm:px-8 py-3 sm:py-4 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all hover:-translate-y-1 hover:shadow-lg min-h-[44px]"
     >
       Sign In with Google
     </button>
@@ -29,16 +29,16 @@ export default function HomePage() {
             Search, organize, and track your fitness journey.
           </p>
           {isAuthenticated ? (
-            <div className="flex gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/upload"
-                className="bg-cf-red text-white px-8 py-4 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all hover:-translate-y-1 hover:shadow-lg"
+                className="bg-cf-red text-white px-6 sm:px-8 py-3 sm:py-4 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all hover:-translate-y-1 hover:shadow-lg text-center"
               >
                 Upload Workout
               </Link>
               <Link
                 to="/workouts"
-                className="bg-transparent border-2 border-white text-white px-8 py-4 rounded font-semibold uppercase tracking-wider hover:bg-white hover:text-black transition-all"
+                className="bg-transparent border-2 border-white text-white px-6 sm:px-8 py-3 sm:py-4 rounded font-semibold uppercase tracking-wider hover:bg-white hover:text-black transition-all text-center"
               >
                 View Workouts
               </Link>
