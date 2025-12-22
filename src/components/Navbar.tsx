@@ -61,6 +61,15 @@ export default function Navbar() {
                         >
                             Upload
                         </Link>
+                        <Link
+                            to="/friends"
+                            className={`text-sm font-semibold uppercase tracking-wider transition-colors ${isActive('/friends')
+                                ? 'text-cf-red'
+                                : 'text-black hover:text-cf-red'
+                                }`}
+                        >
+                            Friends
+                        </Link>
                     </div>
 
                     {/* Mobile Menu Button */}
@@ -96,13 +105,18 @@ export default function Navbar() {
                     <div className="hidden md:flex items-center space-x-4">
                         {isAuthenticated && user ? (
                             <>
-                                {user.picture && (
-                                    <img
-                                        src={user.picture}
-                                        alt={user.name}
-                                        className="w-10 h-10 rounded-full"
-                                    />
-                                )}
+                                <Link
+                                    to="/profile"
+                                    className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+                                >
+                                    {user.picture && (
+                                        <img
+                                            src={user.picture}
+                                            alt={user.name}
+                                            className="w-10 h-10 rounded-full"
+                                        />
+                                    )}
+                                </Link>
                                 <button
                                     onClick={logout}
                                     className="text-sm font-semibold uppercase tracking-wider text-black hover:text-cf-red transition-colors"
@@ -150,18 +164,32 @@ export default function Navbar() {
                             >
                                 Upload
                             </Link>
+                            <Link
+                                to="/friends"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-colors ${isActive('/friends')
+                                    ? 'text-cf-red'
+                                    : 'text-black hover:text-cf-red'
+                                    }`}
+                            >
+                                Friends
+                            </Link>
                             {isAuthenticated && user && (
                                 <div className="px-4 py-2 border-t border-gray-200 mt-2">
-                                    {user.picture && (
-                                        <div className="flex items-center space-x-3 mb-3">
+                                    <Link
+                                        to="/profile"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="flex items-center space-x-3 mb-3 hover:opacity-80 transition-opacity"
+                                    >
+                                        {user.picture && (
                                             <img
                                                 src={user.picture}
                                                 alt={user.name}
                                                 className="w-10 h-10 rounded-full"
                                             />
-                                            <span className="text-sm font-semibold">{user.name}</span>
-                                        </div>
-                                    )}
+                                        )}
+                                        <span className="text-sm font-semibold">{user.name}</span>
+                                    </Link>
                                     <button
                                         onClick={() => {
                                             logout();

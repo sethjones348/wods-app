@@ -10,7 +10,7 @@ import { compressImage } from '../utils/imageCompression';
 export default function EditWorkoutPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { workouts, updateWorkout } = workoutStore();
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -23,7 +23,7 @@ export default function EditWorkoutPage() {
   }, [id, workouts]);
 
   const handleSave = async (extraction: WorkoutExtraction) => {
-    if (!workout || !id) return;
+    if (!workout || !id || !user?.id) return;
 
     setIsSaving(true);
     try {
@@ -32,17 +32,16 @@ export default function EditWorkoutPage() {
       if (workout.imageUrl && workout.imageUrl.startsWith('data:image')) {
         try {
           compressedImage = await compressImage(workout.imageUrl, 1920, 0.8);
-          console.log('Image compressed for storage');
         } catch (compressErr) {
           console.warn('Failed to compress image, using original:', compressErr);
           // Continue with original image if compression fails
         }
       }
-      
+
       await updateWorkout(id, {
         ...extraction,
         imageUrl: compressedImage,
-      });
+      }, user.id);
       navigate(`/workout/${id}`);
     } catch (error) {
       console.error('Failed to update workout:', error);

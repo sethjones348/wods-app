@@ -9,7 +9,7 @@ import { workoutStore } from '../store/workoutStore';
 import { compressImage } from '../utils/imageCompression';
 
 export default function UploadPage() {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const navigate = useNavigate();
     const [uploadedImage, setUploadedImage] = useState<string | null>(null);
     const [extraction, setExtraction] = useState<WorkoutExtraction | null>(null);
@@ -39,6 +39,11 @@ export default function UploadPage() {
     };
 
     const handleSave = async (workoutData: WorkoutExtraction) => {
+        if (!user?.id) {
+            setError('You must be logged in to save workouts');
+            return;
+        }
+
         setIsSaving(true);
         setError(null);
         try {
@@ -47,17 +52,16 @@ export default function UploadPage() {
             if (uploadedImage) {
                 try {
                     compressedImage = await compressImage(uploadedImage, 1920, 0.8);
-                    console.log('Image compressed for storage');
                 } catch (compressErr) {
                     console.warn('Failed to compress image, using original:', compressErr);
                     // Continue with original image if compression fails
                 }
             }
-            
+
             await saveWorkout({
                 ...workoutData,
                 imageUrl: compressedImage,
-            });
+            }, user.id);
             navigate('/workouts');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save workout');

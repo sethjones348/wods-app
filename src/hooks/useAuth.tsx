@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { useGoogleLogin, googleLogout } from '@react-oauth/google';
 import { User } from '../types';
+import { supabase } from '../lib/supabase';
+import { getOrCreateUserProfile } from '../services/userService';
 
 interface AuthContextType {
   user: User | null;
@@ -16,60 +17,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
-  // Load from sessionStorage on mount
+  // Load from Supabase Auth session on mount
   useEffect(() => {
-    const storedUser = sessionStorage.getItem('user');
-    const storedToken = sessionStorage.getItem('token');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error('Failed to parse stored user:', e);
+    // Listen for auth state changes (including OAuth redirects)
+    // With detectSessionInUrl: true, Supabase will automatically detect the code,
+    // exchange it, and fire onAuthStateChange with the session
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const userObj: User = {
+          id: session.user.id,
+          email: session.user.email || '',
+          name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email || '',
+          picture: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+        };
+        setUser(userObj);
+        if (session.access_token) {
+          setToken(session.access_token);
+        }
+
+        // Create or get user profile (non-blocking)
+        getOrCreateUserProfile(userObj).catch(error => {
+          console.error('Failed to create user profile:', error);
+        });
+      } else {
+        setUser(null);
+        setToken(null);
       }
-    }
-    if (storedToken) {
-      setToken(storedToken);
-    }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const loginFn = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        const response = await fetch(
-          `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${tokenResponse.access_token}`
-        );
-        if (!response.ok) {
-          throw new Error('Failed to fetch user info');
-        }
-        const userData = await response.json();
-        
-        const userObj: User = {
-          id: userData.sub,
-          email: userData.email,
-          name: userData.name,
-          picture: userData.picture,
-        };
+  const loginFn = async () => {
+    // Use Supabase Auth with Google provider
+    // This still uses Google OAuth (users authenticate with Google)
+    // but creates a Supabase Auth session so RLS policies work
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}${window.location.pathname}`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
 
-        setUser(userObj);
-        setToken(tokenResponse.access_token);
-        sessionStorage.setItem('user', JSON.stringify(userObj));
-        sessionStorage.setItem('token', tokenResponse.access_token);
-      } catch (error) {
-        console.error('Failed to fetch user info:', error);
-      }
-    },
-    onError: () => {
-      console.error('Login failed');
-    },
-    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive',
-  });
+    if (error) {
+      console.error('Login failed:', error);
+    }
+    // Note: User will be redirected to Google for authentication
+    // After successful auth, they'll be redirected back and onAuthStateChange will fire
+  };
 
-  const logout = () => {
-    googleLogout();
+  const logout = async () => {
+    // Clear state immediately
     setUser(null);
     setToken(null);
-    sessionStorage.removeItem('user');
-    sessionStorage.removeItem('token');
+
+    // Sign out from Supabase Auth
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('Sign out error:', error);
+    }
   };
 
   return (

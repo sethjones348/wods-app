@@ -12,7 +12,8 @@ export interface Workout {
   date: string; // ISO-8601
   rawText: string[];
   extractedData: ExtractedData;
-  imageUrl: string; // base64 or drive file ID
+  imageUrl: string; // base64, Supabase Storage URL, or drive file ID (for migration)
+  userId?: string; // User ID (will be set when auth is integrated)
   metadata: {
     confidence?: number;
     notes?: string;

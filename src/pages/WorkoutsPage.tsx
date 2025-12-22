@@ -7,16 +7,16 @@ import WorkoutCard from '../components/WorkoutCard';
 import SearchBar from '../components/SearchBar';
 
 export default function WorkoutsPage() {
-  const { isAuthenticated } = useAuth();
-  const { workouts, loadWorkouts, isLoading } = workoutStore();
+  const { isAuthenticated, user } = useAuth();
+  const { workouts, loadWorkouts, isLoading, error } = workoutStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredWorkouts, setFilteredWorkouts] = useState<Workout[]>([]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadWorkouts();
+    if (isAuthenticated && user?.id) {
+      loadWorkouts(user.id);
     }
-  }, [isAuthenticated, loadWorkouts]);
+  }, [isAuthenticated, user?.id, loadWorkouts]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -60,6 +60,12 @@ export default function WorkoutsPage() {
           <h1 className="text-3xl sm:text-4xl font-heading font-bold mb-4">Your Workouts</h1>
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
+
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-700">
+            {error}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="text-center py-12">

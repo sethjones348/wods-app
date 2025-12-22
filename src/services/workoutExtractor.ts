@@ -109,21 +109,17 @@ export const workoutExtractor = {
             }
 
             // Try different model names - use latest available models
-            // Based on API availability, try 2.5/2.0 first, then fallback to 1.5
+            // Note: gemini-2.5 models don't exist yet, using 1.5 models
             const modelNames = [
-                'gemini-2.5-flash',     // Latest: fastest, supports vision
-                'gemini-2.5-pro',       // Latest: most capable, supports vision
-                'gemini-2.0-flash',     // Version 2.0: fast, supports vision
-                'gemini-2.0-flash-001', // Version 2.0 with suffix
-                'gemini-1.5-flash',     // Fallback: version 1.5
-                'gemini-1.5-pro',       // Fallback: version 1.5
+                'gemini-1.5-flash',     // Fast, supports vision (recommended)
+                'gemini-1.5-pro',       // More capable, supports vision
+                'gemini-1.5-flash-8b',  // Smaller, faster variant
                 'gemini-pro',           // Legacy fallback
             ];
 
-            // Try to get available models for debugging
+            // Try to get available models
             const availableModels = await listAvailableModels();
             if (availableModels.length > 0) {
-                console.log('Available models:', availableModels);
                 // Add available models to the list to try
                 modelNames.unshift(...availableModels.filter(m => m.includes('gemini')));
             }
@@ -133,17 +129,43 @@ export const workoutExtractor = {
             for (const modelName of modelNames) {
                 try {
                     const model = genAI.getGenerativeModel({ model: modelName });
-                    console.log(`Attempting to use model: ${modelName}`);
 
-                    const result = await model.generateContent([
-                        {
-                            inlineData: {
-                                data: base64Data,
-                                mimeType: mimeType,
-                            },
-                        },
-                        { text: EXTRACTION_PROMPT },
-                    ]);
+                    // Retry logic for 503 errors (service overloaded)
+                    let retries = 3;
+                    let result;
+                    while (retries > 0) {
+                        try {
+                            result = await model.generateContent([
+                                {
+                                    inlineData: {
+                                        data: base64Data,
+                                        mimeType: mimeType,
+                                    },
+                                },
+                                { text: EXTRACTION_PROMPT },
+                            ]);
+                            break; // Success, exit retry loop
+                        } catch (retryError: any) {
+                            // Check if it's a 503 error (service unavailable/overloaded)
+                            const is503Error =
+                                retryError?.message?.includes('503') ||
+                                retryError?.message?.includes('overloaded') ||
+                                retryError?.message?.includes('Service Unavailable');
+
+                            if (is503Error && retries > 1) {
+                                // Exponential backoff: wait 1s, 2s, 4s
+                                const waitTime = Math.pow(2, 3 - retries) * 1000;
+                                await new Promise(resolve => setTimeout(resolve, waitTime));
+                                retries--;
+                                continue;
+                            }
+                            throw retryError; // Not a 503 or out of retries, throw error
+                        }
+                    }
+
+                    if (!result) {
+                        throw new Error('Failed to generate content after retries');
+                    }
 
                     const response = result.response;
                     const text = response.text();
@@ -159,12 +181,10 @@ export const workoutExtractor = {
                         extraction.rawText = ['[No text detected]'];
                     }
 
-                    console.log(`Successfully used model: ${modelName}`);
-                    
                     // Pluralize movements that start with numbers
                     const movements = extraction.movements || [];
                     const pluralizedMovements = pluralizeMovements(movements);
-                    
+
                     return {
                         rawText: extraction.rawText,
                         type: extraction.type || 'unknown',
@@ -181,6 +201,17 @@ export const workoutExtractor = {
                     // Check if it's a 404 (model not found) - try next model
                     if (error.message.includes('404') || error.message.includes('not found')) {
                         console.warn(`Model ${modelName} not available: ${error.message}`);
+                        continue; // Try next model
+                    }
+
+                    // Check if it's a 503 (service overloaded) - try next model
+                    const is503Error =
+                        error.message.includes('503') ||
+                        error.message.includes('overloaded') ||
+                        error.message.includes('Service Unavailable');
+
+                    if (is503Error) {
+                        console.warn(`Model ${modelName} is overloaded: ${error.message}`);
                         continue; // Try next model
                     }
 

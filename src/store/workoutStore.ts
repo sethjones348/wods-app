@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Workout, WorkoutExtraction } from '../types';
-import { driveStorage } from '../services/driveStorage';
+import { supabaseStorage } from '../services/supabaseStorage';
 import { workoutCache } from '../services/workoutCache';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -8,11 +8,11 @@ interface WorkoutStore {
   workouts: Workout[];
   isLoading: boolean;
   error: string | null;
-  loadWorkouts: () => Promise<void>;
-  saveWorkout: (extraction: WorkoutExtraction & { imageUrl: string }) => Promise<void>;
-  updateWorkout: (id: string, extraction: WorkoutExtraction & { imageUrl: string }) => Promise<void>;
+  loadWorkouts: (userId: string) => Promise<void>;
+  saveWorkout: (extraction: WorkoutExtraction & { imageUrl: string }, userId: string) => Promise<void>;
+  updateWorkout: (id: string, extraction: WorkoutExtraction & { imageUrl: string }, userId: string) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
-  syncFromDrive: () => Promise<void>;
+  syncFromSupabase: (userId: string) => Promise<void>;
 }
 
 export const workoutStore = create<WorkoutStore>((set, get) => ({
@@ -20,54 +20,84 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
   isLoading: false,
   error: null,
 
-  loadWorkouts: async () => {
+  loadWorkouts: async (userId: string) => {
     set({ isLoading: true, error: null });
+
+    // Add overall timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      set({
+        workouts: [],
+        isLoading: false,
+        error: 'Request timed out. Please check your connection and try again.',
+      });
+    }, 10000); // 10 second timeout
+
     try {
       // Try cache first
       const cachedWorkouts = await workoutCache.loadWorkouts();
-      
+
       // If cache has workouts, show them immediately and sync in background
-      if (cachedWorkouts.length > 0) {
+      if (cachedWorkouts && cachedWorkouts.length > 0) {
+        clearTimeout(timeoutId);
         set({ workouts: cachedWorkouts, isLoading: false });
-        // Sync from Drive in background
-        get().syncFromDrive();
+        // Sync from Supabase in background
+        get().syncFromSupabase(userId);
       } else {
-        // Cache is empty, load from Drive and wait for it
+        // Cache is empty, load from Supabase and wait for it
         try {
-          const driveWorkouts = await driveStorage.loadWorkouts();
-          set({ workouts: driveWorkouts, isLoading: false });
+          const supabaseWorkouts = await supabaseStorage.loadWorkouts(userId);
+          clearTimeout(timeoutId);
+          set({ workouts: supabaseWorkouts || [], isLoading: false });
           // Update cache
-          for (const workout of driveWorkouts) {
-            await workoutCache.saveWorkout(workout);
+          if (supabaseWorkouts) {
+            for (const workout of supabaseWorkouts) {
+              await workoutCache.saveWorkout(workout);
+            }
           }
-        } catch (driveError) {
+        } catch (supabaseError) {
+          clearTimeout(timeoutId);
           set({
-            error: driveError instanceof Error ? driveError.message : 'Failed to load workouts',
+            error: supabaseError instanceof Error ? supabaseError.message : 'Failed to load workouts',
+            workouts: [], // Set empty array on error
             isLoading: false,
           });
         }
       }
     } catch (error) {
       console.error('Failed to load workouts from cache:', error);
-      // Fallback to Drive
+      // Fallback to Supabase
       try {
-        const driveWorkouts = await driveStorage.loadWorkouts();
-        set({ workouts: driveWorkouts, isLoading: false });
+        const supabaseWorkouts = await supabaseStorage.loadWorkouts(userId);
+        clearTimeout(timeoutId);
+        set({ workouts: supabaseWorkouts || [], isLoading: false });
         // Update cache
-        for (const workout of driveWorkouts) {
-          await workoutCache.saveWorkout(workout);
+        if (supabaseWorkouts) {
+          for (const workout of supabaseWorkouts) {
+            await workoutCache.saveWorkout(workout);
+          }
         }
-      } catch (driveError) {
+      } catch (supabaseError) {
+        clearTimeout(timeoutId);
         set({
-          error: driveError instanceof Error ? driveError.message : 'Failed to load workouts',
+          error: supabaseError instanceof Error ? supabaseError.message : 'Failed to load workouts',
+          workouts: [], // Set empty array on error
           isLoading: false,
         });
       }
     }
   },
 
-  saveWorkout: async (extraction) => {
+  saveWorkout: async (extraction, userId: string) => {
     set({ isLoading: true, error: null });
+
+    // Add overall timeout for save operation
+    const timeoutId = setTimeout(() => {
+      set({
+        isLoading: false,
+        error: 'Save operation timed out. Please check your connection and try again.',
+      });
+    }, 60000); // 60 second timeout for entire save operation
+
     try {
       // Generate default name if not provided
       const generateDefaultName = (): string => {
@@ -98,26 +128,30 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
         },
       };
 
-      // Save to both Drive and cache
+      // Save to both Supabase and cache
+      // Save to Supabase and cache
       await Promise.all([
-        driveStorage.saveWorkout(workout),
+        supabaseStorage.saveWorkout(workout, userId),
         workoutCache.saveWorkout(workout),
       ]);
 
+      clearTimeout(timeoutId);
       set((state) => ({
         workouts: [workout, ...state.workouts],
         isLoading: false,
       }));
     } catch (error) {
+      clearTimeout(timeoutId);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to save workout';
       set({
-        error: error instanceof Error ? error.message : 'Failed to save workout',
+        error: errorMessage,
         isLoading: false,
       });
       throw error;
     }
   },
 
-  updateWorkout: async (id, extraction) => {
+  updateWorkout: async (id, extraction, userId: string) => {
     set({ isLoading: true, error: null });
     try {
       const existingWorkout = get().workouts.find((w) => w.id === id);
@@ -154,9 +188,9 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
         },
       };
 
-      // Update in both Drive and cache
+      // Update in both Supabase and cache
       await Promise.all([
-        driveStorage.saveWorkout(updatedWorkout),
+        supabaseStorage.saveWorkout(updatedWorkout, userId),
         workoutCache.saveWorkout(updatedWorkout),
       ]);
 
@@ -177,7 +211,7 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await Promise.all([
-        driveStorage.deleteWorkout(id),
+        supabaseStorage.deleteWorkout(id),
         workoutCache.deleteWorkout(id),
       ]);
 
@@ -194,19 +228,22 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
     }
   },
 
-  syncFromDrive: async () => {
+  syncFromSupabase: async (userId: string) => {
     try {
-      const driveWorkouts = await driveStorage.loadWorkouts();
-      
+      const supabaseWorkouts = await supabaseStorage.loadWorkouts(userId);
+
       // Update cache
       await workoutCache.clearCache();
-      for (const workout of driveWorkouts) {
-        await workoutCache.saveWorkout(workout);
+      if (supabaseWorkouts && supabaseWorkouts.length > 0) {
+        for (const workout of supabaseWorkouts) {
+          await workoutCache.saveWorkout(workout);
+        }
       }
 
-      set({ workouts: driveWorkouts });
+      set({ workouts: supabaseWorkouts || [] });
     } catch (error) {
-      console.error('Failed to sync from Drive:', error);
+      console.error('Failed to sync from Supabase:', error);
+      // Don't update state on sync error, keep existing workouts
     }
   },
 }));
