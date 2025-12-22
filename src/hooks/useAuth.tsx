@@ -54,10 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Use Supabase Auth with Google provider
     // This still uses Google OAuth (users authenticate with Google)
     // but creates a Supabase Auth session so RLS policies work
+    
+    // Get the current origin and pathname, ensuring we use the correct production URL
+    const currentUrl = window.location.origin + window.location.pathname;
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}${window.location.pathname}`,
+        redirectTo: currentUrl,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -67,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) {
       console.error('Login failed:', error);
+      alert(`Login failed: ${error.message}. Please check that your production URL is configured in Supabase dashboard.`);
     }
     // Note: User will be redirected to Google for authentication
     // After successful auth, they'll be redirected back and onAuthStateChange will fire
