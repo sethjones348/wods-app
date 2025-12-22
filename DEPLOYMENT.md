@@ -38,9 +38,17 @@ Your app will be live at: `https://YOUR_USERNAME.github.io/sam-fit/`
 ### 2. GitHub Secrets Configuration
 Go to: **Settings → Secrets and variables → Actions**
 
-Add these secrets:
-- `VITE_GEMINI_API_KEY` - Your Gemini API key
-- `VITE_GOOGLE_CLIENT_ID` - Your Google OAuth Client ID
+**Option A: Repository Secrets (Recommended - Simpler)**
+- Click "New repository secret"
+- Add these secrets:
+  - `VITE_GEMINI_API_KEY` - Your Gemini API key
+  - `VITE_GOOGLE_CLIENT_ID` - Your Google OAuth Client ID
+
+**Option B: Environment Secrets**
+- Go to "Environments" tab
+- Select or create `github-pages` environment
+- Add the same secrets there
+- Note: The workflow must specify the environment (already configured)
 
 ### 3. Google Cloud Console Updates
 Update OAuth 2.0 credentials to include production URL:
@@ -115,11 +123,17 @@ After deployment, update Google Cloud Console with your actual GitHub Pages URL:
 - Check that secrets are set correctly
 - Wait a few minutes after updating OAuth settings
 
-### Issue: API keys not working
+### Issue: API keys not working / Configuration Error
 **Solution**: 
-- Verify secrets are set in GitHub repository
-- Check Actions logs for build errors
+- Verify secrets are set in GitHub repository (Settings → Secrets → Actions)
+- **If using Repository Secrets**: They should work automatically
+- **If using Environment Secrets**: 
+  - Ensure the environment is named exactly `github-pages`
+  - Check that the workflow job specifies `environment: name: github-pages`
+  - Verify secrets are added to the correct environment
+- Check Actions logs for the "Verify secrets are set" step
 - Ensure secret names match exactly: `VITE_GEMINI_API_KEY` and `VITE_GOOGLE_CLIENT_ID`
+- **Recommended**: Use Repository Secrets instead of Environment Secrets for simplicity
 
 ## Repository Name
 If your repository is named something other than `sam-fit`, update:
