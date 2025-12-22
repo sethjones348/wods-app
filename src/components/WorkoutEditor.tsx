@@ -259,17 +259,41 @@ export default function WorkoutEditor({
                     <div className="flex gap-2 ml-2">
                       <button
                         onClick={() => handleSaveEditMovement(index)}
-                        className="text-green-600 hover:text-green-800 text-sm font-semibold"
+                        className="text-green-600 hover:text-green-800 hover:bg-green-50 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
                         title="Save"
                       >
-                        ✓
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
                       </button>
                       <button
                         onClick={handleCancelEditMovement}
-                        className="text-gray-600 hover:text-gray-800 text-sm font-semibold"
+                        className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
                         title="Cancel"
                       >
-                        ×
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={3}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
                       </button>
                     </div>
                   </>
@@ -331,10 +355,22 @@ export default function WorkoutEditor({
                   />
                   <button
                     onClick={() => handleRemoveTime(index)}
-                    className="text-red-600 hover:text-red-800 px-2 py-1 text-sm font-semibold min-w-[32px] min-h-[32px] flex items-center justify-center"
+                    className="text-red-600 hover:text-red-800 hover:bg-red-50 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
                     title="Remove this round"
                   >
-                    ×
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
                   </button>
                 </div>
               ))}
@@ -369,10 +405,22 @@ export default function WorkoutEditor({
                   />
                   <button
                     onClick={() => handleRemoveRep(index)}
-                    className="text-red-600 hover:text-red-800 px-2 py-1 text-sm font-semibold min-w-[32px] min-h-[32px] flex items-center justify-center"
+                    className="text-red-600 hover:text-red-800 hover:bg-red-50 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
                     title="Remove this round"
                   >
-                    ×
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
                   </button>
                 </div>
               ))}
