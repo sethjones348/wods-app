@@ -26,7 +26,7 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/sam-fit">
           <Layout>
             <Routes>
               <Route path="/" element={<HomePage />} />

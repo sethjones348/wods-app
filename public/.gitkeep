@@ -1,0 +1,3 @@
+# This folder is for static assets that will be copied to dist/ during build
+# Add any static files here (like CNAME for custom domain)
+

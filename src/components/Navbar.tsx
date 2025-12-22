@@ -124,8 +124,8 @@ export default function Navbar() {
                                 to="/"
                                 onClick={() => setMobileMenuOpen(false)}
                                 className={`px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-colors ${isActive('/')
-                                        ? 'text-cf-red'
-                                        : 'text-black hover:text-cf-red'
+                                    ? 'text-cf-red'
+                                    : 'text-black hover:text-cf-red'
                                     }`}
                             >
                                 Home
@@ -134,8 +134,8 @@ export default function Navbar() {
                                 to="/workouts"
                                 onClick={() => setMobileMenuOpen(false)}
                                 className={`px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-colors ${isActive('/workouts')
-                                        ? 'text-cf-red'
-                                        : 'text-black hover:text-cf-red'
+                                    ? 'text-cf-red'
+                                    : 'text-black hover:text-cf-red'
                                     }`}
                             >
                                 Workouts
@@ -144,8 +144,8 @@ export default function Navbar() {
                                 to="/upload"
                                 onClick={() => setMobileMenuOpen(false)}
                                 className={`px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-colors ${isActive('/upload')
-                                        ? 'text-cf-red'
-                                        : 'text-black hover:text-cf-red'
+                                    ? 'text-cf-red'
+                                    : 'text-black hover:text-cf-red'
                                     }`}
                             >
                                 Upload
