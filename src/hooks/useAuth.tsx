@@ -54,10 +54,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Use Supabase Auth with Google provider
     // This still uses Google OAuth (users authenticate with Google)
     // but creates a Supabase Auth session so RLS policies work
-    
+
     // Get the current origin and pathname, ensuring we use the correct production URL
     const currentUrl = window.location.origin + window.location.pathname;
-    
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {

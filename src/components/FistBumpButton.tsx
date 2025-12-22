@@ -9,11 +9,13 @@ import {
 
 interface FistBumpButtonProps {
   workoutId: string;
+  commentCount?: number;
   onReactionChange?: (count: number, hasReacted: boolean) => void;
 }
 
 export default function FistBumpButton({
   workoutId,
+  commentCount = 0,
   onReactionChange,
 }: FistBumpButtonProps) {
   const { isAuthenticated, user: currentUser } = useAuth();
@@ -142,8 +144,13 @@ export default function FistBumpButton({
         >
           👊
         </span>
-        {count > 0 && (
-          <span className="text-sm font-semibold">{count}</span>
+        {(count > 0 || commentCount > 0) && (
+          <span className="text-sm font-semibold">
+            {[
+              count > 0 && (count === 1 ? '1 fist' : `${count} fists`),
+              commentCount > 0 && (commentCount === 1 ? '1 comment' : `${commentCount} comments`),
+            ].filter(Boolean).join(', ')}
+          </span>
         )}
       </button>
 
