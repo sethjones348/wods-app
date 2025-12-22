@@ -70,6 +70,15 @@ export default function Navbar() {
                         >
                             Friends
                         </Link>
+                        <Link
+                            to="/feed"
+                            className={`text-sm font-semibold uppercase tracking-wider transition-colors ${isActive('/feed')
+                                ? 'text-cf-red'
+                                : 'text-black hover:text-cf-red'
+                                }`}
+                        >
+                            Feed
+                        </Link>
                     </div>
 
                     {/* Mobile Menu Button */}
@@ -173,6 +182,16 @@ export default function Navbar() {
                                     }`}
                             >
                                 Friends
+                            </Link>
+                            <Link
+                                to="/feed"
+                                onClick={() => setMobileMenuOpen(false)}
+                                className={`px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-colors ${isActive('/feed')
+                                    ? 'text-cf-red'
+                                    : 'text-black hover:text-cf-red'
+                                    }`}
+                            >
+                                Feed
                             </Link>
                             {isAuthenticated && user && (
                                 <div className="px-4 py-2 border-t border-gray-200 mt-2">

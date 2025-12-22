@@ -9,6 +9,7 @@ import WorkoutDetailPage from './pages/WorkoutDetailPage';
 import EditWorkoutPage from './pages/EditWorkoutPage';
 import ProfilePage from './pages/ProfilePage';
 import FriendsPage from './pages/FriendsPage';
+import FeedPage from './pages/FeedPage';
 
 // Dynamically determine base path based on current location
 // If we're on GitHub Pages subdirectory, use that; otherwise use root
@@ -56,6 +57,7 @@ function App() {
               <Route path="/profile/:id" element={<ProfilePage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/friends" element={<FriendsPage />} />
+              <Route path="/feed" element={<FeedPage />} />
             </Routes>
         </Layout>
       </BrowserRouter>

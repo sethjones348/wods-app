@@ -45,6 +45,14 @@ jobs:
             echo "ERROR: VITE_GEMINI_API_KEY is not set"
             exit 1
           fi
+          if [ -z "${{ secrets.VITE_SUPABASE_URL }}" ]; then
+            echo "ERROR: VITE_SUPABASE_URL is not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VITE_SUPABASE_ANON_KEY }}" ]; then
+            echo "ERROR: VITE_SUPABASE_ANON_KEY is not set"
+            exit 1
+          fi
           echo "✓ Secrets are configured"
 
       - name: Build
@@ -52,6 +60,8 @@ jobs:
         env:
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
           VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
