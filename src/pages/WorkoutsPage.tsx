@@ -37,7 +37,9 @@ export default function WorkoutsPage() {
       // Load user profile for name
       getUserProfile(targetUserId)
         .then((profile) => {
-          setExternalUserName(profile.name);
+          if (profile) {
+            setExternalUserName(profile.name);
+          }
         })
         .catch((err) => {
           console.error('Failed to load user profile:', err);

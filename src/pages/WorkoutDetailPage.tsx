@@ -31,7 +31,7 @@ export default function WorkoutDetailPage() {
                 if (found) {
                     setWorkout(found);
                     // Check if this is the user's workout
-                    const isOwn = found.userId && user?.id && found.userId === user.id;
+                    const isOwn = !!(found.userId && user?.id && found.userId === user.id);
                     setIsOwnWorkout(isOwn);
                     setIsLoading(false);
                     return;
@@ -42,7 +42,7 @@ export default function WorkoutDetailPage() {
                 if (fetchedWorkout) {
                     setWorkout(fetchedWorkout);
                     // Check if this is the user's workout
-                    const isOwn = fetchedWorkout.userId && user?.id && fetchedWorkout.userId === user.id;
+                    const isOwn = !!(fetchedWorkout.userId && user?.id && fetchedWorkout.userId === user.id);
                     setIsOwnWorkout(isOwn);
                 } else {
                     setWorkout(null);
