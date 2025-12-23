@@ -44,6 +44,52 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Safe area insets for iOS notch (only applies on devices that support it) */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+#root {
+  min-height: 100vh;
+  /* Use dynamic viewport height on mobile for better PWA experience */
+  min-height: 100dvh;
+}
+
+/* PWA-specific styles - only apply in standalone mode or on mobile */
+@media (max-width: 768px) {
+  /* Prevent pull-to-refresh on mobile (native app feel) */
+  body {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  html {
+    overscroll-behavior-y: none;
+  }
+  
+  /* Hide scrollbars on mobile for native app feel */
+  #root {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+  
+  #root::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+}
+
+/* Additional PWA styling when in standalone mode */
+@media (display-mode: standalone) {
+  body {
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  html {
+    overscroll-behavior-y: none;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {
