@@ -93,6 +93,7 @@ export default function EditWorkoutPage() {
     times: workout.extractedData.times,
     reps: workout.extractedData.reps,
     confidence: workout.metadata.confidence || 1.0,
+    privacy: workout.privacy || 'public',
   };
 
   return (

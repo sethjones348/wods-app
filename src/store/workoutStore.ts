@@ -115,6 +115,7 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
         name: extraction.name?.trim() || generateDefaultName(),
         date: extraction.date || new Date().toISOString(),
         rawText: extraction.rawText,
+        privacy: extraction.privacy || 'public',
         extractedData: {
           type: extraction.type,
           rounds: extraction.rounds,
@@ -174,6 +175,7 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
         name: extraction.name?.trim() || generateDefaultName(),
         date: extraction.date || existingWorkout.date,
         rawText: extraction.rawText,
+        privacy: extraction.privacy || 'public',
         extractedData: {
           type: extraction.type,
           rounds: extraction.rounds,

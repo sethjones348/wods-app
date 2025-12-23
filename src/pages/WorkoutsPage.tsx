@@ -1,31 +1,74 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Workout } from '../types';
 import { workoutStore } from '../store/workoutStore';
+import { supabaseStorage } from '../services/supabaseStorage';
+import { getUserProfile } from '../services/userService';
 import WorkoutCard from '../components/WorkoutCard';
 import SearchBar from '../components/SearchBar';
 
 export default function WorkoutsPage() {
+  const { userId: paramUserId } = useParams<{ userId?: string }>();
   const { isAuthenticated, user } = useAuth();
   const { workouts, loadWorkouts, isLoading, error } = workoutStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredWorkouts, setFilteredWorkouts] = useState<Workout[]>([]);
+  const [isLoadingExternal, setIsLoadingExternal] = useState(false);
+  const [externalWorkouts, setExternalWorkouts] = useState<Workout[]>([]);
+  const [externalError, setExternalError] = useState<string | null>(null);
+  const [externalUserName, setExternalUserName] = useState<string | null>(null);
+
+  // Determine which user's workouts to show
+  const targetUserId = paramUserId || user?.id;
+  const isViewingOwnWorkouts = !paramUserId || paramUserId === user?.id;
 
   useEffect(() => {
-    if (isAuthenticated && user?.id) {
+    if (!isAuthenticated) return;
+    
+    if (isViewingOwnWorkouts && user?.id) {
+      // Load own workouts using the store
       loadWorkouts(user.id);
+    } else if (targetUserId) {
+      // Load another user's workouts directly
+      setIsLoadingExternal(true);
+      setExternalError(null);
+      
+      // Load user profile for name
+      getUserProfile(targetUserId)
+        .then((profile) => {
+          setExternalUserName(profile.name);
+        })
+        .catch((err) => {
+          console.error('Failed to load user profile:', err);
+        });
+      
+      // Load workouts - only public workouts when viewing another user
+      supabaseStorage.loadWorkouts(targetUserId, true) // onlyPublic = true
+        .then((workouts) => {
+          setExternalWorkouts(workouts);
+          setIsLoadingExternal(false);
+        })
+        .catch((err) => {
+          setExternalError(err instanceof Error ? err.message : 'Failed to load workouts');
+          setIsLoadingExternal(false);
+        });
     }
-  }, [isAuthenticated, user?.id, loadWorkouts]);
+  }, [isAuthenticated, user?.id, targetUserId, isViewingOwnWorkouts, loadWorkouts]);
+
+  // Use external workouts if viewing another user, otherwise use store workouts
+  const workoutsToDisplay = isViewingOwnWorkouts ? workouts : externalWorkouts;
+  const isLoadingWorkouts = isViewingOwnWorkouts ? isLoading : isLoadingExternal;
+  const workoutsError = isViewingOwnWorkouts ? error : externalError;
 
   useEffect(() => {
     if (!searchQuery.trim()) {
-      setFilteredWorkouts(workouts);
+      setFilteredWorkouts(workoutsToDisplay);
       return;
     }
 
     const query = searchQuery.toLowerCase();
-    const filtered = workouts.filter((workout) => {
+    const filtered = workoutsToDisplay.filter((workout) => {
       // Search in movements
       const movementsMatch = workout.extractedData.movements.some((movement) =>
         movement.toLowerCase().includes(query)
@@ -40,7 +83,7 @@ export default function WorkoutsPage() {
     });
 
     setFilteredWorkouts(filtered);
-  }, [searchQuery, workouts]);
+  }, [searchQuery, workoutsToDisplay]);
 
   if (!isAuthenticated) {
     return (
@@ -57,17 +100,19 @@ export default function WorkoutsPage() {
     <div className="min-h-screen md:pt-20 md:pb-12">
       <div className="max-w-7xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8">
         <div className="mb-4 md:mb-8 px-4 md:px-0 bg-white md:bg-transparent border-b md:border-b-0 border-gray-200 md:border-0 py-3 md:py-0 sticky md:static top-0 z-30">
-          <h1 className="text-xl md:text-3xl sm:text-4xl font-heading font-bold mb-3 md:mb-4">Your Workouts</h1>
+          <h1 className="text-xl md:text-3xl sm:text-4xl font-heading font-bold mb-3 md:mb-4">
+            {isViewingOwnWorkouts ? 'Your Workouts' : externalUserName ? `${externalUserName}'s Workouts` : 'Workouts'}
+          </h1>
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
         </div>
 
-        {error && (
+        {workoutsError && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-700 mx-4 md:mx-0">
-            {error}
+            {workoutsError}
           </div>
         )}
 
-        {isLoading ? (
+        {isLoadingWorkouts ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cf-red mb-4"></div>
             <p className="text-lg text-gray-600">Loading workouts...</p>
@@ -86,13 +131,17 @@ export default function WorkoutsPage() {
               </>
             ) : (
               <>
-                <p className="text-xl text-gray-600 mb-4">No workouts yet</p>
-                <Link
-                  to="/upload"
-                  className="inline-block bg-cf-red text-white px-6 py-3 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all"
-                >
-                  Upload Your First Workout
-                </Link>
+                <p className="text-xl text-gray-600 mb-4">
+                  {isViewingOwnWorkouts ? 'No workouts yet' : 'No workouts'}
+                </p>
+                {isViewingOwnWorkouts && (
+                  <Link
+                    to="/upload"
+                    className="inline-block bg-cf-red text-white px-6 py-3 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all"
+                  >
+                    Upload Your First Workout
+                  </Link>
+                )}
               </>
             )}
           </div>

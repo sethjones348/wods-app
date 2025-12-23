@@ -62,6 +62,7 @@ function App() {
             <Routes>
               <Route path="/" element={<FeedPage />} />
               <Route path="/workouts" element={<WorkoutsPage />} />
+              <Route path="/workouts/:userId" element={<WorkoutsPage />} />
               <Route path="/upload" element={<UploadPage />} />
               <Route path="/workout/:id" element={<WorkoutDetailPage />} />
               <Route path="/workout/:id/edit" element={<EditWorkoutPage />} />

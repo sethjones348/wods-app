@@ -141,7 +141,7 @@ export const supabaseStorage = {
             times: workout.extractedData.times,
             reps: workout.extractedData.reps,
             image_url: imageUrl || null,
-            privacy: 'public',
+            privacy: workout.privacy || 'public',
             confidence: workout.metadata.confidence || null,
         };
 
@@ -155,17 +155,24 @@ export const supabaseStorage = {
         }
     },
 
-    async loadWorkouts(userId?: string): Promise<Workout[]> {
+    async loadWorkouts(userId?: string, onlyPublic: boolean = false): Promise<Workout[]> {
         if (!userId) {
             throw new Error('User ID is required to load workouts');
         }
 
         // Use Supabase client to fetch workouts
-        const { data, error } = await supabase
+        let query = supabase
             .from('workouts')
             .select('*')
-            .eq('user_id', userId)
-            .order('created_at', { ascending: false });
+            .eq('user_id', userId);
+        
+        // Filter to only public workouts if requested
+        // Include NULL values for backwards compatibility (old workouts without privacy field)
+        if (onlyPublic) {
+            query = query.or('privacy.eq.public,privacy.is.null');
+        }
+        
+        const { data, error } = await query.order('created_at', { ascending: false });
 
         if (error) {
             throw new Error(`Failed to load workouts: ${error.message}`);
@@ -190,6 +197,8 @@ export const supabaseStorage = {
                     reps: row.reps || null,
                 },
                 imageUrl: row.image_url || '',
+                userId: row.user_id,
+                privacy: row.privacy || 'public',
                 metadata: {
                     confidence: row.confidence || undefined,
                 },

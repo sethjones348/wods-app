@@ -14,6 +14,7 @@ export interface Workout {
   extractedData: ExtractedData;
   imageUrl: string; // base64, Supabase Storage URL, or drive file ID (for migration)
   userId?: string; // User ID (will be set when auth is integrated)
+  privacy?: 'public' | 'private'; // Privacy setting
   metadata: {
     confidence?: number;
     notes?: string;
@@ -30,6 +31,7 @@ export interface WorkoutExtraction {
   times: number[] | null;
   reps: number[] | null;
   confidence: number;
+  privacy?: 'public' | 'private'; // Privacy setting, defaults to 'public'
 }
 
 export interface User {

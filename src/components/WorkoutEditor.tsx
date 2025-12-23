@@ -17,14 +17,20 @@ export default function WorkoutEditor({
   onCancel,
   isSaving = false,
 }: WorkoutEditorProps) {
-  const [formData, setFormData] = useState(extraction);
+  const [formData, setFormData] = useState({
+    ...extraction,
+    privacy: extraction.privacy || 'public',
+  });
   const [movementInput, setMovementInput] = useState('');
   const [editingMovementIndex, setEditingMovementIndex] = useState<number | null>(null);
   const [editingMovementValue, setEditingMovementValue] = useState('');
   const [timeInputValue, setTimeInputValue] = useState('');
 
   useEffect(() => {
-    setFormData(extraction);
+    setFormData({
+      ...extraction,
+      privacy: extraction.privacy || 'public',
+    });
     // Initialize time input value when extraction changes
     if (extraction.date) {
       setTimeInputValue(formatTime12Hour(extraction.date));
@@ -596,6 +602,31 @@ export default function WorkoutEditor({
           />
           <p className="text-xs text-gray-500 mt-1">
             Edit the raw text extracted from the image. Each line represents a row from the whiteboard.
+          </p>
+        </div>
+
+        {/* Privacy Setting */}
+        <div className="pt-4">
+          <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
+            Privacy
+          </label>
+          <select
+            value={formData.privacy || 'public'}
+            onChange={(e) => {
+              setFormData({
+                ...formData,
+                privacy: e.target.value as 'public' | 'private',
+              });
+            }}
+            className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none bg-white text-base"
+          >
+            <option value="public">Public</option>
+            <option value="private">Private</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            {formData.privacy === 'private' 
+              ? 'Private workouts are only visible to you'
+              : 'Public workouts are visible to everyone'}
           </p>
         </div>
 

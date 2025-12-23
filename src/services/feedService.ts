@@ -35,6 +35,7 @@ export async function getFeedWorkouts(): Promise<FeedWorkout[]> {
   followingIds.push(user.id); // Add current user to see their own workouts
 
   // Get public workouts from followed users
+  // Include NULL values for backwards compatibility (old workouts without privacy field)
   // Try different join syntax - use the relationship directly
   const { data, error } = await supabase
     .from('workouts')
@@ -43,7 +44,7 @@ export async function getFeedWorkouts(): Promise<FeedWorkout[]> {
       users!inner(id, name, email, picture)
     `)
     .in('user_id', followingIds)
-    .eq('privacy', 'public')
+    .or('privacy.eq.public,privacy.is.null')
     .order('date', { ascending: false })
     .limit(50); // Limit to 50 most recent workouts
 
@@ -153,6 +154,7 @@ export async function getFeedWorkouts(): Promise<FeedWorkout[]> {
         reps: row.reps || null,
       },
       imageUrl: row.image_url || '',
+      privacy: row.privacy || 'public',
       metadata: {
         confidence: row.confidence || undefined,
       },
