@@ -2,10 +2,11 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { getUserProfile, updateUserProfile, UserProfile } from '../services/userService';
-import { getFollowing, getFollowers } from '../services/friendService';
+import { getFollowing } from '../services/friendService';
 import { workoutStore } from '../store/workoutStore';
+import { supabase } from '../lib/supabase';
 import { Workout } from '../types';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isWithinInterval, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval, parseISO, startOfWeek } from 'date-fns';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -18,8 +19,7 @@ export default function ProfilePage() {
     bio: '',
     workoutPrivacy: 'public' as 'public' | 'private',
   });
-  const [followingCount, setFollowingCount] = useState(0);
-  const [followersCount, setFollowersCount] = useState(0);
+  const [friendsCount, setFriendsCount] = useState(0);
   const [weeklyWorkouts, setWeeklyWorkouts] = useState<Workout[]>([]);
   const { workouts, loadWorkouts } = workoutStore();
 
@@ -51,17 +51,21 @@ export default function ProfilePage() {
     const loadFriendCounts = async () => {
       try {
         if (isOwnProfile) {
-          const [following, followers] = await Promise.all([
-            getFollowing(),
-            getFollowers(),
-          ]);
-          setFollowingCount(following.length);
-          setFollowersCount(followers.length);
-        } else {
-          // For other users, we'd need to query their follows
-          // For now, just show 0
-          setFollowingCount(0);
-          setFollowersCount(0);
+          // Since following and followers are the same (bidirectional friendship),
+          // we can use either count
+          const following = await getFollowing();
+          setFriendsCount(following.length);
+        } else if (userId) {
+          // For other users, get their following count
+          // We can query follows where they are the follower
+          const { count, error } = await supabase
+            .from('follows')
+            .select('*', { count: 'exact', head: true })
+            .eq('follower_id', userId);
+
+          if (!error && count !== null) {
+            setFriendsCount(count);
+          }
         }
       } catch (error) {
         console.error('Failed to load friend counts:', error);
@@ -69,8 +73,9 @@ export default function ProfilePage() {
     };
 
     const loadWeeklyWorkouts = async () => {
-      if (!isOwnProfile || !userId) return;
+      if (!userId) return;
       try {
+        // Load workouts for the profile user (own or other)
         await loadWorkouts(userId);
       } catch (error) {
         console.error('Failed to load workouts:', error);
@@ -82,7 +87,7 @@ export default function ProfilePage() {
     loadWeeklyWorkouts();
   }, [userId, isOwnProfile, loadWorkouts]);
 
-  // Calculate weekly workout data
+  // Calculate monthly workout data
   useEffect(() => {
     if (!workouts || workouts.length === 0) {
       setWeeklyWorkouts([]);
@@ -90,37 +95,41 @@ export default function ProfilePage() {
     }
 
     const now = new Date();
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 }); // Monday
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
 
-    const thisWeekWorkouts = workouts.filter((workout) => {
+    const thisMonthWorkouts = workouts.filter((workout) => {
       const workoutDate = parseISO(workout.date);
-      return isWithinInterval(workoutDate, { start: weekStart, end: weekEnd });
+      return isWithinInterval(workoutDate, { start: monthStart, end: monthEnd });
     });
 
-    setWeeklyWorkouts(thisWeekWorkouts);
+    setWeeklyWorkouts(thisMonthWorkouts);
   }, [workouts]);
 
-  // Create graph data for the week
-  const weekDays = eachDayOfInterval({
-    start: startOfWeek(new Date(), { weekStartsOn: 1 }),
-    end: endOfWeek(new Date(), { weekStartsOn: 1 }),
+  // Create GitHub-style contribution graph for the current month only
+  const now = new Date();
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+
+  // Get the first day of the week for the month start (to align grid)
+  const weekStart = startOfWeek(monthStart, { weekStartsOn: 0 }); // Start from Sunday for grid alignment
+
+  // Get all days from the week start to month end (includes padding days at start)
+  const allDays = eachDayOfInterval({
+    start: weekStart,
+    end: monthEnd,
   });
 
-  const graphData = weekDays.map((day) => {
-    const dayWorkouts = weeklyWorkouts.filter((workout) => {
-      const workoutDate = parseISO(workout.date);
-      return format(workoutDate, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd');
-    });
-    return {
-      day: format(day, 'EEE'),
-      date: format(day, 'MMM d'),
-      count: dayWorkouts.length,
-      workouts: dayWorkouts,
-    };
-  });
+  // Create a map of workout dates for quick lookup
+  const workoutDates = new Set(
+    weeklyWorkouts.map((workout) => format(parseISO(workout.date), 'yyyy-MM-dd'))
+  );
 
-  const maxCount = Math.max(...graphData.map(d => d.count), 1);
+  // Organize days into weeks (7 days per row)
+  const weeks: Date[][] = [];
+  for (let i = 0; i < allDays.length; i += 7) {
+    weeks.push(allDays.slice(i, i + 7));
+  }
 
   const handleSave = async () => {
     if (!userId || !isOwnProfile) return;
@@ -219,19 +228,13 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Friend counts - Strava style */}
-            {isOwnProfile && (
-              <div className="flex gap-6 mb-4">
-                <div>
-                  <div className="text-2xl md:text-3xl font-bold">{followingCount}</div>
-                  <div className="text-xs md:text-sm text-gray-600">Following</div>
-                </div>
-                <div>
-                  <div className="text-2xl md:text-3xl font-bold">{followersCount}</div>
-                  <div className="text-xs md:text-sm text-gray-600">Followers</div>
-                </div>
+            {/* Friend count - Strava style */}
+            <div className="mb-4">
+              <div>
+                <div className="text-2xl md:text-3xl font-bold">{friendsCount}</div>
+                <div className="text-xs md:text-sm text-gray-600">Friends</div>
               </div>
-            )}
+            </div>
 
             {isEditing && isOwnProfile ? (
               <div className="space-y-4 mt-4">
@@ -284,43 +287,89 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* This Week Section - Strava style */}
-        {isOwnProfile && (
+        {/* This Month Section - GitHub contribution graph style */}
+        {
           <div className="bg-white md:border md:border-gray-200 md:rounded-lg md:shadow-md mt-4 md:mt-6 overflow-hidden">
             <div className="px-4 md:px-6 py-4 md:py-6 border-b border-gray-200">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <h2 className="text-lg md:text-xl font-heading font-bold">This week</h2>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg md:text-xl font-heading font-bold">This month</h2>
+                  <span className="text-sm text-gray-600">{weeklyWorkouts.length} {weeklyWorkouts.length === 1 ? 'workout' : 'workouts'}</span>
+                </div>
               </div>
-              <div className="text-2xl md:text-3xl font-bold mb-4">{weeklyWorkouts.length}</div>
-              
-              {/* Weekly Graph */}
-              <div className="mt-4">
-                <div className="flex items-end justify-between gap-1 h-32">
-                  {graphData.map((data, index) => (
-                    <div key={index} className="flex-1 flex flex-col items-center">
-                      <div className="w-full flex flex-col items-center justify-end h-full">
-                        <div
-                          className="w-full bg-cf-red rounded-t transition-all"
-                          style={{
-                            height: `${(data.count / maxCount) * 100}%`,
-                            minHeight: data.count > 0 ? '8px' : '0',
-                          }}
-                        />
+
+              {/* GitHub-style contribution graph */}
+              <div className="overflow-x-auto">
+                <div className="inline-block min-w-full">
+                  {/* Day labels */}
+                  <div className="flex gap-1 mb-2">
+                    <div className="w-3"></div> {/* Spacer for day labels */}
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
+                      <div key={day} className="flex-1 text-xs text-gray-500 text-center">
+                        {idx % 2 === 0 ? day : ''}
                       </div>
-                      <div className="mt-2 text-xs text-gray-600 text-center">
-                        <div className="font-semibold">{data.day}</div>
-                        <div className="text-[10px]">{data.date}</div>
-                      </div>
+                    ))}
+                  </div>
+
+                  {/* Contribution grid */}
+                  <div className="flex gap-1">
+                    {/* Week labels */}
+                    <div className="flex flex-col gap-1 justify-start pt-1">
+                      {weeks.map((week, weekIdx) => {
+                        // Only show label for weeks that have a day in the current month
+                        const hasMonthDay = week.some(day =>
+                          day >= monthStart && day <= monthEnd
+                        );
+                        if (!hasMonthDay) return <div key={weekIdx} className="h-3"></div>;
+                        return (
+                          <div key={weekIdx} className="h-3 text-xs text-gray-500 text-right pr-2">
+                            {weekIdx % 2 === 0 ? format(week[0], 'MMM d') : ''}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
+
+                    {/* Contribution squares */}
+                    <div className="flex-1">
+                      {weeks.map((week, weekIdx) => (
+                        <div key={weekIdx} className="flex gap-1 mb-1">
+                          {week.map((day) => {
+                            const dayStr = format(day, 'yyyy-MM-dd');
+                            const hasWorkout = workoutDates.has(dayStr);
+                            const isCurrentMonth = day >= monthStart && day <= monthEnd;
+
+                            return (
+                              <div
+                                key={dayStr}
+                                className={`flex-1 aspect-square rounded-sm ${hasWorkout && isCurrentMonth
+                                    ? 'bg-cf-red/40 hover:bg-cf-red/60'
+                                    : isCurrentMonth
+                                      ? 'bg-gray-100 hover:bg-gray-200'
+                                      : 'bg-transparent'
+                                  } transition-colors cursor-pointer`}
+                                title={isCurrentMonth ? `${format(day, 'MMM d, yyyy')}${hasWorkout ? ' - Workout' : ' - No workout'}` : ''}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex items-center gap-2 mt-4 text-xs text-gray-600">
+                    <span>Less</span>
+                    <div className="flex gap-1">
+                      <div className="w-3 h-3 rounded-sm bg-gray-100"></div>
+                      <div className="w-3 h-3 rounded-sm bg-cf-red/40"></div>
+                    </div>
+                    <span>More</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        }
 
         {/* Activities Section - Strava style */}
         <div className="bg-white md:border md:border-gray-200 md:rounded-lg md:shadow-md mt-4 md:mt-6 overflow-hidden">
