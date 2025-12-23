@@ -54,7 +54,7 @@ export default function WorkoutsPage() {
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-12">
+    <div className="min-h-screen md:pt-20 md:pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl sm:text-4xl font-heading font-bold mb-4">Your Workouts</h1>

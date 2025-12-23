@@ -75,7 +75,7 @@ export default function FeedPage() {
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-12">
+    <div className="min-h-screen md:pt-20 md:pb-12">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-700">

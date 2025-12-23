@@ -57,6 +57,15 @@ body {
   min-height: 100dvh;
 }
 
+/* Safe area utilities for iOS notch support */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* PWA-specific styles - only apply in standalone mode or on mobile */
 @media (max-width: 768px) {
   /* Prevent pull-to-refresh on mobile (native app feel) */

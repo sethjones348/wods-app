@@ -99,7 +99,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen pt-20 pb-12">
+    <div className="min-h-screen md:pt-20 md:pb-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <Link to="/workouts" className="text-cf-red hover:underline mb-4 inline-block">
