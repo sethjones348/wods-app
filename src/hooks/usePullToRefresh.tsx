@@ -38,8 +38,11 @@ export function usePullToRefresh({
     const element = elementRef.current || document.documentElement;
     
     const handleTouchStart = (e: TouchEvent) => {
-      // Only trigger if at the top of the scrollable area
-      if (element.scrollTop !== 0) return;
+      // Only trigger if at the top of the scrollable area (with small tolerance)
+      if (element.scrollTop > 5) {
+        isPulling.current = false;
+        return;
+      }
       
       startY.current = e.touches[0].clientY;
       isPulling.current = true;
@@ -50,11 +53,19 @@ export function usePullToRefresh({
     const handleTouchMove = (e: TouchEvent) => {
       if (!isPulling.current) return;
       
+      // Double-check we're still at the top
+      if (element.scrollTop > 5) {
+        isPulling.current = false;
+        pullDistanceRef.current = 0;
+        setPullDistance(0);
+        return;
+      }
+      
       const currentY = e.touches[0].clientY;
       const distance = currentY - startY.current;
       
       // Only allow pulling down
-      if (distance > 0 && element.scrollTop === 0) {
+      if (distance > 0) {
         e.preventDefault();
         const pullAmount = Math.min(distance, threshold * 1.5);
         pullDistanceRef.current = pullAmount;

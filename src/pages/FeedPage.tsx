@@ -54,7 +54,7 @@ export default function FeedPage() {
   };
 
   // Pull-to-refresh hook (mobile only)
-  const { isRefreshing, elementRef } = usePullToRefresh({
+  const { isRefreshing, pullDistance, elementRef } = usePullToRefresh({
     onRefresh: loadFeed,
     enabled: isAuthenticated && !!user?.id,
   });
@@ -81,19 +81,15 @@ export default function FeedPage() {
     );
   }
 
+  // Calculate pull transform for first card (mobile only)
+  const pullTransform = pullDistance > 0 ? Math.min(pullDistance, 80) : 0;
+  const showPullSpinner = pullDistance > 0 || isRefreshing;
+
   return (
     <div 
       ref={elementRef}
       className="min-h-screen md:pt-20 md:pb-12 relative"
     >
-      {/* Pull-to-refresh indicator (mobile only) */}
-      {isRefreshing && (
-        <div className="md:hidden fixed top-14 left-0 right-0 z-50 flex items-center justify-center py-2 bg-white border-b border-gray-200">
-          <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-cf-red"></div>
-          <span className="ml-2 text-sm text-gray-600">Refreshing...</span>
-        </div>
-      )}
-      
       <div className="max-w-2xl mx-auto px-0 md:px-4 sm:px-6 lg:px-8">
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded text-red-700 mx-4 md:mx-0">
@@ -162,16 +158,38 @@ export default function FeedPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-0 md:space-y-6">
+          <div className="space-y-0 md:space-y-6 relative">
+            {/* Pull-to-refresh spinner (mobile only) - appears above first card */}
+            {showPullSpinner && (
+              <div 
+                className="md:hidden absolute top-0 left-0 right-0 flex items-center justify-center py-3 bg-white z-10 transition-opacity"
+                style={{
+                  transform: `translateY(${Math.max(0, pullTransform - 60)}px)`,
+                  opacity: pullDistance > 0 ? Math.min(1, pullDistance / 60) : 1,
+                }}
+              >
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-cf-red"></div>
+                {isRefreshing && (
+                  <span className="ml-2 text-sm text-gray-600">Refreshing...</span>
+                )}
+              </div>
+            )}
+            
             {workouts.map((workout, index) => (
               <div 
                 key={workout.id}
                 className={`
-                  ${index === 0 ? 'border-t-0' : 'border-t border-gray-200'}
+                  ${index === 0 ? 'border-t-0' : 'border-t-2 md:border-t border-gray-300 md:border-gray-200'}
                   bg-white
                   md:bg-transparent
                   md:border-0
+                  transition-transform duration-200 ease-out
                 `}
+                style={{
+                  transform: index === 0 && pullTransform > 0 
+                    ? `translateY(${pullTransform}px)` 
+                    : 'translateY(0)',
+                }}
               >
                 <FeedWorkoutCard workout={workout} user={workout.user} />
               </div>
