@@ -134,11 +134,13 @@ export default function FistBumpButton({
             : 'text-gray-600 hover:text-cf-red'
         } ${
           isToggling ? 'opacity-50 cursor-wait' : 'cursor-pointer'
-        } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''}`}
+        } ${!isAuthenticated ? 'opacity-50 cursor-not-allowed' : ''} ${
+          !hasReacted && isAuthenticated ? 'opacity-40 hover:opacity-60' : ''
+        }`}
         title={hasReacted ? 'Remove fist bump' : 'Fist bump'}
       >
         <span
-          className={`text-xl transition-transform ${
+          className={`text-xl transition-all ${
             hasReacted ? 'scale-110' : ''
           } ${isToggling ? 'animate-pulse' : ''}`}
         >

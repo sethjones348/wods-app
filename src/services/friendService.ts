@@ -102,17 +102,49 @@ export async function sendFriendRequest(toEmail: string): Promise<FriendRequest>
     }
   }
 
-  // Create friend request
-  const { data, error } = await supabase
+  // Check if there's an existing request (any status) - if so, update it instead of inserting
+  // This handles the case where someone unfollowed and wants to send a new request
+  const { data: existingRequest } = await supabase
     .from('friend_requests')
-    .insert({
-      from_user_id: user.id,
-      to_email: toEmail.toLowerCase().trim(),
-      to_user_id: toUser?.id || null,
-      status: 'pending',
-    })
-    .select()
+    .select('*')
+    .eq('from_user_id', user.id)
+    .eq('to_email', toEmail.toLowerCase().trim())
     .single();
+
+  let data;
+  let error;
+
+  if (existingRequest) {
+    // Update existing request to pending (handles case where previous request was accepted/declined)
+    const { data: updatedData, error: updateError } = await supabase
+      .from('friend_requests')
+      .update({
+        status: 'pending',
+        to_user_id: toUser?.id || existingRequest.to_user_id || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingRequest.id)
+      .select()
+      .single();
+    
+    data = updatedData;
+    error = updateError;
+  } else {
+    // Create new friend request
+    const { data: insertedData, error: insertError } = await supabase
+      .from('friend_requests')
+      .insert({
+        from_user_id: user.id,
+        to_email: toEmail.toLowerCase().trim(),
+        to_user_id: toUser?.id || null,
+        status: 'pending',
+      })
+      .select()
+      .single();
+    
+    data = insertedData;
+    error = insertError;
+  }
 
   if (error || !data) {
     throw new Error(`Failed to send friend request: ${error?.message || 'Unknown error'}`);
