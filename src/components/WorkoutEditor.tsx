@@ -27,12 +27,24 @@ export default function WorkoutEditor({
   const [editingMovementValue, setEditingMovementValue] = useState('');
   const [editingTimeIndex, setEditingTimeIndex] = useState<number | null>(null);
   const [editingTimeValue, setEditingTimeValue] = useState('');
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [timeInputValue, setTimeInputValue] = useState('');
 
   useEffect(() => {
     setFormData({
       ...extraction,
       privacy: extraction.privacy || 'public',
     });
+    // Initialize time input value
+    if (extraction.date) {
+      const d = new Date(extraction.date);
+      let hours = d.getHours();
+      const minutes = d.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
+    }
   }, [extraction]);
 
   const handleAddMovement = () => {
@@ -231,15 +243,130 @@ export default function WorkoutEditor({
                 className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none min-h-[44px]"
               />
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-xs text-gray-600 mb-1">Time</label>
               {formData.date ? (
-                <TimePicker
-                  value={formData.date}
-                  onChange={(isoString) => {
-                    setFormData({ ...formData, date: isoString });
-                  }}
-                />
+                <>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={timeInputValue}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setTimeInputValue(value);
+                        // Try to parse and update if valid format
+                        if (formData.date && /^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(value)) {
+                          const match = value.match(/(\d+):(\d+)\s*(AM|PM)/i);
+                          if (match) {
+                            let hours = parseInt(match[1], 10);
+                            const minutes = parseInt(match[2], 10);
+                            const ampm = match[3].toUpperCase();
+                            
+                            if (ampm === 'PM' && hours !== 12) {
+                              hours += 12;
+                            } else if (ampm === 'AM' && hours === 12) {
+                              hours = 0;
+                            }
+                            
+                            const dateStr = getLocalDateString(formData.date);
+                            const time24Hour = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                            const newISO = localDateTimeToISO(dateStr, time24Hour);
+                            setFormData({ ...formData, date: newISO });
+                          }
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Format on blur if invalid
+                        const value = e.target.value;
+                        if (formData.date && (!value || !/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(value))) {
+                          const d = new Date(formData.date);
+                          let hours = d.getHours();
+                          const minutes = d.getMinutes();
+                          const ampm = hours >= 12 ? 'PM' : 'AM';
+                          hours = hours % 12;
+                          hours = hours ? hours : 12;
+                          setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
+                        }
+                      }}
+                      placeholder="hh:mm AM/PM"
+                      className="flex-1 px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none min-h-[44px] bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTimePicker(!showTimePicker)}
+                      className="px-3 py-2 border-2 border-gray-200 rounded hover:border-cf-red focus:border-cf-red outline-none transition-colors min-h-[44px] flex items-center justify-center"
+                      title="Select time"
+                    >
+                      <svg
+                        className="w-5 h-5 text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  {showTimePicker && (
+                    <>
+                      {/* Backdrop */}
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowTimePicker(false)}
+                      />
+                      {/* Time Picker Dropdown */}
+                      <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white border-2 border-gray-200 rounded-lg shadow-lg">
+                        <TimePicker
+                          value={formData.date}
+                          onChange={(isoString) => {
+                            setFormData({ ...formData, date: isoString });
+                            // Update the input value to match
+                            const d = new Date(isoString);
+                            let hours = d.getHours();
+                            const minutes = d.getMinutes();
+                            const ampm = hours >= 12 ? 'PM' : 'AM';
+                            hours = hours % 12;
+                            hours = hours ? hours : 12;
+                            setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
+                          }}
+                        />
+                        <div className="flex justify-end gap-2 p-3 border-t border-gray-200">
+                          <button
+                            type="button"
+                            onClick={() => setShowTimePicker(false)}
+                            className="px-4 py-2 text-gray-600 hover:text-gray-800 font-semibold"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowTimePicker(false);
+                              // Update input value when OK is clicked
+                              if (formData.date) {
+                                const d = new Date(formData.date);
+                                let hours = d.getHours();
+                                const minutes = d.getMinutes();
+                                const ampm = hours >= 12 ? 'PM' : 'AM';
+                                hours = hours % 12;
+                                hours = hours ? hours : 12;
+                                setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
+                              }
+                            }}
+                            className="px-4 py-2 bg-cf-red text-white rounded font-semibold hover:bg-cf-red-hover transition-colors"
+                          >
+                            OK
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
               ) : (
                 <div className="text-gray-400 text-sm py-4">Set date first</div>
               )}
