@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { WorkoutExtraction } from '../types';
 import { pluralizeMovement } from '../utils/movementUtils';
+import TimePicker from './TimePicker';
 
 interface WorkoutEditorProps {
   extraction: WorkoutExtraction;
@@ -24,17 +25,14 @@ export default function WorkoutEditor({
   const [movementInput, setMovementInput] = useState('');
   const [editingMovementIndex, setEditingMovementIndex] = useState<number | null>(null);
   const [editingMovementValue, setEditingMovementValue] = useState('');
-  const [timeInputValue, setTimeInputValue] = useState('');
+  const [editingTimeIndex, setEditingTimeIndex] = useState<number | null>(null);
+  const [editingTimeValue, setEditingTimeValue] = useState('');
 
   useEffect(() => {
     setFormData({
       ...extraction,
       privacy: extraction.privacy || 'public',
     });
-    // Initialize time input value when extraction changes
-    if (extraction.date) {
-      setTimeInputValue(formatTime12Hour(extraction.date));
-    }
   }, [extraction]);
 
   const handleAddMovement = () => {
@@ -125,31 +123,6 @@ export default function WorkoutEditor({
     });
   };
 
-  const parseTimeToSeconds = (timeStr: string): number => {
-    if (!timeStr || !timeStr.trim()) return 0;
-    
-    // Handle MM:SS format
-    const parts = timeStr.trim().split(':');
-    if (parts.length === 2) {
-      const minutes = parseInt(parts[0], 10) || 0;
-      const seconds = parseInt(parts[1], 10) || 0;
-      return minutes * 60 + seconds;
-    }
-    
-    // Handle just seconds (single number)
-    const secondsOnly = parseInt(timeStr.trim(), 10);
-    if (!isNaN(secondsOnly)) {
-      return secondsOnly;
-    }
-    
-    return 0;
-  };
-
-  const formatSecondsToTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Convert ISO string to local date string (YYYY-MM-DD)
   const getLocalDateString = (isoString: string): string => {
@@ -174,35 +147,7 @@ export default function WorkoutEditor({
     return date.toISOString();
   };
 
-  // Format time as 12-hour with AM/PM
-  const formatTime12Hour = (isoString: string): string => {
-    const date = new Date(isoString);
-    let hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12; // 0 should be 12
-    const minutesStr = String(minutes).padStart(2, '0');
-    return `${hours}:${minutesStr} ${ampm}`;
-  };
 
-  // Parse 12-hour time string (hh:mm AM/PM) to 24-hour format (HH:MM)
-  const parse12HourTime = (time12Hour: string): string => {
-    const match = time12Hour.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return '12:00';
-    
-    let hours = parseInt(match[1], 10);
-    const minutes = match[2];
-    const ampm = match[3].toUpperCase();
-    
-    if (ampm === 'PM' && hours !== 12) {
-      hours += 12;
-    } else if (ampm === 'AM' && hours === 12) {
-      hours = 0;
-    }
-    
-    return `${String(hours).padStart(2, '0')}:${minutes}`;
-  };
 
   const generateDefaultName = (): string => {
     // Use first line of raw text, or fallback to rounds-type format
@@ -288,39 +233,16 @@ export default function WorkoutEditor({
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-1">Time</label>
-              <input
-                type="text"
-                value={timeInputValue}
-                onChange={(e) => {
-                  const timeValue = e.target.value;
-                  // Always update the input value so user can type freely
-                  setTimeInputValue(timeValue);
-                  
-                  // If we have a complete valid format, update the formData date
-                  if (formData.date && timeValue && /^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(timeValue)) {
-                    const dateStr = getLocalDateString(formData.date);
-                    const time24Hour = parse12HourTime(timeValue);
-                    const newISO = localDateTimeToISO(dateStr, time24Hour);
-                    setFormData({
-                      ...formData,
-                      date: newISO,
-                    });
-                  }
-                }}
-                onBlur={(e) => {
-                  // On blur, if the format is incomplete or invalid, revert to formatted time
-                  const timeValue = e.target.value;
-                  if (formData.date) {
-                    if (!timeValue || !/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(timeValue)) {
-                      // Invalid or empty format, revert to formatted time
-                      const formatted = formatTime12Hour(formData.date);
-                      setTimeInputValue(formatted);
-                    }
-                  }
-                }}
-                placeholder="hh:mm AM/PM"
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none min-h-[44px]"
-              />
+              {formData.date ? (
+                <TimePicker
+                  value={formData.date}
+                  onChange={(isoString) => {
+                    setFormData({ ...formData, date: isoString });
+                  }}
+                />
+              ) : (
+                <div className="text-gray-400 text-sm py-4">Set date first</div>
+              )}
             </div>
           </div>
           <p className="text-xs text-gray-500 mt-1">
@@ -501,39 +423,97 @@ export default function WorkoutEditor({
               Times (MM:SS)
             </label>
             <div className="space-y-2">
-              {formData.times?.map((time, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <span className="w-20 text-sm">Round {index + 1}:</span>
-                  <input
-                    type="text"
-                    value={formatSecondsToTime(time)}
-                    onChange={(e) =>
-                      handleUpdateTime(index, parseTimeToSeconds(e.target.value))
-                    }
-                    className="flex-1 px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
-                    placeholder="MM:SS"
-                  />
-                  <button
-                    onClick={() => handleRemoveTime(index)}
-                    className="text-red-600 hover:text-red-800 hover:bg-red-50 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
-                    title="Remove this round"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+              {formData.times?.map((time, index) => {
+                const minutes = Math.floor(time / 60);
+                const seconds = time % 60;
+                const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                const isEditing = editingTimeIndex === index;
+                const displayValue = isEditing ? editingTimeValue : formattedTime;
+                
+                return (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="w-20 text-sm">Round {index + 1}:</span>
+                    <input
+                      type="text"
+                      value={displayValue}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow free typing - just store the raw value
+                        setEditingTimeValue(value);
+                        setEditingTimeIndex(index);
+                      }}
+                      onFocus={() => {
+                        // When focusing, use the raw formatted time
+                        setEditingTimeValue(formattedTime);
+                        setEditingTimeIndex(index);
+                      }}
+                      onBlur={() => {
+                        // Parse and format on blur
+                        const value = editingTimeValue.trim();
+                        let parsedSeconds = 0;
+                        
+                        if (value === '') {
+                          // Empty, keep current value
+                          setEditingTimeIndex(null);
+                          return;
+                        }
+                        
+                        // Try to parse MM:SS format
+                        if (value.includes(':')) {
+                          const parts = value.split(':');
+                          if (parts.length === 2) {
+                            const mins = Math.max(0, Math.min(59, parseInt(parts[0], 10) || 0));
+                            const secs = Math.max(0, Math.min(59, parseInt(parts[1], 10) || 0));
+                            parsedSeconds = mins * 60 + secs;
+                          } else {
+                            // Invalid format, revert
+                            setEditingTimeIndex(null);
+                            return;
+                          }
+                        } else {
+                          // Just a number - treat as seconds
+                          parsedSeconds = Math.max(0, parseInt(value, 10) || 0);
+                        }
+                        
+                        // Update the time
+                        handleUpdateTime(index, parsedSeconds);
+                        setEditingTimeIndex(null);
+                        setEditingTimeValue('');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        } else if (e.key === 'Escape') {
+                          setEditingTimeIndex(null);
+                          setEditingTimeValue('');
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      className="flex-1 px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
+                      placeholder="MM:SS or seconds"
+                    />
+                    <button
+                      onClick={() => handleRemoveTime(index)}
+                      className="text-red-600 hover:text-red-800 hover:bg-red-50 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
+                      title="Remove this round"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={3}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={3}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
               <button
                 onClick={handleAddTime}
                 className="text-cf-red hover:underline text-sm font-semibold"

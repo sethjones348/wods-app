@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
-import { getOrCreateUserProfile } from '../services/userService';
+import { getOrCreateUserProfile, getUserProfile } from '../services/userService';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +9,7 @@ interface AuthContextType {
   login: () => void;
   logout: () => void;
   token: string | null;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,21 +27,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
+        // First create user object with OAuth data
         const userObj: User = {
           id: session.user.id,
           email: session.user.email || '',
           name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email || '',
           picture: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
         };
-        setUser(userObj);
+        
+        // Fetch profile from database to get the actual profile picture (if uploaded)
+        // This ensures we use the database picture instead of OAuth picture
+        getUserProfile(session.user.id)
+          .then(profile => {
+            if (profile) {
+              // Update user object with database profile data (picture, name, etc.)
+              setUser({
+                ...userObj,
+                name: profile.name || userObj.name,
+                picture: profile.picture || userObj.picture, // Use database picture if available, fallback to OAuth
+              });
+            } else {
+              // Profile doesn't exist yet, use OAuth data
+              setUser(userObj);
+              // Create profile (non-blocking)
+              getOrCreateUserProfile(userObj).catch(error => {
+                console.error('Failed to create user profile:', error);
+              });
+            }
+          })
+          .catch(error => {
+            console.error('Failed to get user profile:', error);
+            // Fallback to OAuth data if profile fetch fails
+            setUser(userObj);
+            // Try to create profile
+            getOrCreateUserProfile(userObj).catch(err => {
+              console.error('Failed to create user profile:', err);
+            });
+          });
+        
         if (session.access_token) {
           setToken(session.access_token);
         }
-
-        // Create or get user profile (non-blocking)
-        getOrCreateUserProfile(userObj).catch(error => {
-          console.error('Failed to create user profile:', error);
-        });
       } else {
         setUser(null);
         setToken(null);
@@ -90,6 +117,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) {
+      setUser(null);
+      return;
+    }
+
+    // Fetch fresh profile from database
+    try {
+      const profile = await getUserProfile(session.user.id);
+      if (profile) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email || '',
+          name: profile.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email || '',
+          picture: profile.picture || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to refresh user profile:', error);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -98,6 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login: loginFn,
         logout,
         token,
+        refreshUser,
       }}
     >
       {children}

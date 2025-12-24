@@ -31,6 +31,8 @@ The function accepts POST requests with:
 - `subject`: Email subject
 - `html`: HTML email content
 - `from`: (optional) From address, defaults to "SamFit <noreply@samfit.xyz>"
+  
+**Note**: Make sure to add and verify `samfit.xyz` at https://resend.com/domains before using this function.
 
 ## Alternative: Using Other Email Services
 

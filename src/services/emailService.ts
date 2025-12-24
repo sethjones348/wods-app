@@ -7,6 +7,14 @@ interface SendEmailOptions {
   from?: string;
 }
 
+// Base64 encoded SamFit logo (SF on black background)
+const SAMFIT_LOGO_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwMDAwMCIgcng9IjE1Ii8+CiAgPHRleHQgeD0iMTgiIHk9IjcwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNTgiIGZvbnQtd2VpZ2h0PSI5MDAiIGZpbGw9IiNGRkZGRkYiIGxldHRlci1zcGFjaW5nPSItMyIgc3Ryb2tlPSIjRkZGRkZGIiBzdHJva2Utd2lkdGg9IjAuNSI+UzwvdGV4dD4KICA8dGV4dCB4PSI1MCIgeT0iNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI1OCIgZm9udC13ZWlnaHQ9IjkwMCIgZmlsbD0iI0UxMTkzMSIgbGV0dGVyLXNwYWNpbmc9Ii0zIiBzdHJva2U9IiNFMTE5MzEiIHN0cm9rZS13aWR0aD0iMC41Ij5GPC90ZXh0Pgo8L3N2Zz4=';
+
+const EMAIL_HEADER_WITH_LOGO = `
+          <img src="${SAMFIT_LOGO_BASE64}" alt="SamFit" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 10px; display: inline-block;" />
+          <h1 style="margin: 0; color: #fff; display: inline-block; vertical-align: middle;">Sam<span style="color: #D21034;">Fit</span></h1>
+`;
+
 /**
  * Send an email using Supabase Edge Function
  * The Edge Function should be deployed at: /functions/send-email
@@ -28,7 +36,16 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
   });
 
   if (error) {
+    console.error('Email service error:', error);
     throw new Error(`Failed to send email: ${error.message}`);
+  }
+
+  console.log('Email service response:', data);
+
+  // Check if the response indicates success
+  if (data && !data.success) {
+    console.error('Email service returned non-success:', data);
+    throw new Error(`Failed to send email: ${data.error || 'Unknown error'}`);
   }
 
   return data;
@@ -92,7 +109,7 @@ export async function sendFriendInviteEmail(
       </head>
       <body>
         <div class="header">
-          <h1 style="margin: 0; color: #fff;">Sam<span style="color: #D21034;">Fit</span></h1>
+          ${EMAIL_HEADER_WITH_LOGO}
         </div>
         <div class="content">
           <h2>You've been invited to join SamFit!</h2>
@@ -210,7 +227,7 @@ export async function sendDailyActivityEmail(
       </head>
       <body>
         <div class="header">
-          <h1 style="margin: 0; color: #fff;">Sam<span style="color: #D21034;">Fit</span></h1>
+          ${EMAIL_HEADER_WITH_LOGO}
         </div>
         <div class="content">
           <h2>Your Daily Activity Summary</h2>
@@ -302,9 +319,15 @@ export async function sendReactionNotificationEmail(
             border-radius: 0 0 8px 8px;
           }
           .reaction-icon {
-            font-size: 48px;
+            font-size: 32px;
             text-align: center;
             margin: 20px 0;
+          }
+          .logo-img {
+            width: 40px;
+            height: 40px;
+            vertical-align: middle;
+            margin-right: 10px;
           }
           .button {
             display: inline-block;
@@ -328,7 +351,7 @@ export async function sendReactionNotificationEmail(
       </head>
       <body>
         <div class="header">
-          <h1 style="margin: 0; color: #fff;">Sam<span style="color: #D21034;">Fit</span></h1>
+          ${EMAIL_HEADER_WITH_LOGO}
         </div>
         <div class="content">
           <div class="reaction-icon">👊</div>
@@ -424,7 +447,7 @@ export async function sendCommentNotificationEmail(
       </head>
       <body>
         <div class="header">
-          <h1 style="margin: 0; color: #fff;">Sam<span style="color: #D21034;">Fit</span></h1>
+          ${EMAIL_HEADER_WITH_LOGO}
         </div>
         <div class="content">
           <h2>${commenterName} commented on your workout!</h2>

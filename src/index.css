@@ -107,3 +107,13 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.2;
 }
 
+/* Hide scrollbars utility */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
