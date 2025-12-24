@@ -702,6 +702,121 @@ export default function ProfilePage() {
           </div>
         }
 
+        {/* Movement Analysis Section */}
+        {workouts.length > 0 && (
+          <div className="bg-white md:border md:border-gray-200 md:rounded-lg md:shadow-md mt-4 md:mt-6 overflow-hidden">
+            <div className="px-4 md:px-6 py-4 md:py-6 border-b border-gray-200">
+              <h2 className="text-lg md:text-xl font-heading font-bold mb-4">Movement Analysis</h2>
+
+              {(() => {
+                // Calculate movement frequency and volume
+                const movementStats: Record<string, { frequency: number; volume: number }> = {};
+
+                workouts.forEach((workout) => {
+                  const movements = workout.extractedData.movements || [];
+                  const reps = workout.extractedData.reps || [];
+                  const rounds = workout.extractedData.rounds || 1;
+
+                  movements.forEach((movement, index) => {
+                    if (!movement || !movement.trim()) return;
+
+                    const movementName = movement.trim();
+                    const repCount = reps[index] || 0;
+                    const totalReps = repCount * rounds;
+
+                    if (!movementStats[movementName]) {
+                      movementStats[movementName] = { frequency: 0, volume: 0 };
+                    }
+
+                    movementStats[movementName].frequency += 1;
+                    movementStats[movementName].volume += totalReps;
+                  });
+                });
+
+                // Sort by frequency (most frequent first), then by volume
+                const sortedMovements = Object.entries(movementStats)
+                  .sort((a, b) => {
+                    if (b[1].frequency !== a[1].frequency) {
+                      return b[1].frequency - a[1].frequency;
+                    }
+                    return b[1].volume - a[1].volume;
+                  })
+                  .slice(0, 10); // Top 10 movements
+
+                if (sortedMovements.length === 0) {
+                  return (
+                    <p className="text-sm text-gray-500">No movement data available</p>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {/* Frequency Section */}
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-600 mb-3">
+                        Most Frequent Movements
+                      </h3>
+                      <div className="space-y-2">
+                        {sortedMovements.map(([movement, stats]) => (
+                          <div key={movement} className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-900">{movement}</span>
+                            <div className="flex items-center gap-4">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">Frequency:</span>
+                                <span className="text-sm font-semibold text-cf-red">{stats.frequency}</span>
+                              </div>
+                              {stats.volume > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500">Volume:</span>
+                                  <span className="text-sm font-semibold text-gray-700">{stats.volume.toLocaleString()} reps</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Volume Section - Top movements by total reps */}
+                    {sortedMovements.some(([_, stats]) => stats.volume > 0) && (
+                      <div className="pt-4 border-t border-gray-200">
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-600 mb-3">
+                          Highest Volume Movements
+                        </h3>
+                        <div className="space-y-2">
+                          {sortedMovements
+                            .filter(([_, stats]) => stats.volume > 0)
+                            .sort((a, b) => b[1].volume - a[1].volume)
+                            .slice(0, 5)
+                            .map(([movement, stats]) => {
+                              const maxVolume = Math.max(...sortedMovements.map(([_, s]) => s.volume));
+                              const percentage = (stats.volume / maxVolume) * 100;
+
+                              return (
+                                <div key={movement} className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-gray-900">{movement}</span>
+                                    <span className="text-sm font-semibold text-gray-700">{stats.volume.toLocaleString()} reps</span>
+                                  </div>
+                                  <div className="w-full bg-gray-100 rounded-full h-2">
+                                    <div
+                                      className="bg-cf-red h-2 rounded-full transition-all"
+                                      style={{ width: `${percentage}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* Workouts Section - Strava style */}
         <Link to={`/workouts/${userId}`} className="block">
           <div className="bg-white md:border md:border-gray-200 md:rounded-lg md:shadow-md mt-4 md:mt-6 overflow-hidden hover:bg-gray-50 transition-colors">
