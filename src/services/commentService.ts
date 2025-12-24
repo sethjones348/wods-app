@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { sendCommentNotificationEmail } from './emailService';
 
 export interface Comment {
   id: string;
@@ -130,7 +131,7 @@ export async function addComment(workoutId: string, text: string): Promise<Comme
     .eq('id', user.id)
     .single();
 
-  return {
+  const comment: Comment = {
     id: data.id,
     workoutId: data.workout_id,
     userId: data.user_id,
@@ -145,6 +146,50 @@ export async function addComment(workoutId: string, text: string): Promise<Comme
       picture: userData.picture || undefined,
     } : undefined,
   };
+
+  // Send email notification to workout owner (if not commenting on own workout)
+  try {
+    // Get workout owner information
+    const { data: workout, error: workoutError } = await supabase
+      .from('workouts')
+      .select('user_id, name, users!inner(id, name, email, settings)')
+      .eq('id', workoutId)
+      .single();
+
+    if (!workoutError && workout) {
+      const workoutOwner = Array.isArray(workout.users) ? workout.users[0] : workout.users;
+      
+      // Only send if:
+      // 1. Not commenting on own workout
+      // 2. Workout owner has email notifications enabled (or not set, defaults to enabled)
+      if (workoutOwner && workoutOwner.id !== user.id) {
+        const emailNotifications = workoutOwner.settings?.emailNotifications;
+        if (emailNotifications !== false) { // Default to true if not set
+          const commenterName = userData?.name || 'Someone';
+          const ownerName = workoutOwner.name || 'User';
+          const workoutName = workout.name || 'Your workout';
+
+          // Send email notification (non-blocking)
+          sendCommentNotificationEmail(
+            workoutOwner.email,
+            ownerName,
+            commenterName,
+            data.text,
+            workoutName,
+            workoutId
+          ).catch(error => {
+            console.error('Failed to send comment notification email:', error);
+            // Don't throw - email failure shouldn't break the comment
+          });
+        }
+      }
+    }
+  } catch (error) {
+    // Don't fail the comment if email fails
+    console.error('Error sending comment notification:', error);
+  }
+
+  return comment;
 }
 
 /**

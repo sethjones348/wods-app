@@ -61,20 +61,9 @@ export async function sendFriendRequest(toEmail: string): Promise<FriendRequest>
     .eq('email', toEmail.toLowerCase().trim())
     .single();
 
-  // Check if request already exists
-  const { data: existingRequest } = await supabase
-    .from('friend_requests')
-    .select('*')
-    .eq('from_user_id', user.id)
-    .eq('to_email', toEmail.toLowerCase().trim())
-    .single();
-
-  if (existingRequest) {
-    throw new Error('Friend request already sent to this email');
-  }
-
-  // Check if already following
+  // Check if there's a pending friend request OR if already following
   if (toUser) {
+    // Check if already following (if following, can't send request)
     const { data: existingFollow } = await supabase
       .from('follows')
       .select('*')
@@ -84,6 +73,32 @@ export async function sendFriendRequest(toEmail: string): Promise<FriendRequest>
 
     if (existingFollow) {
       throw new Error('You are already following this user');
+    }
+
+    // Check if there's a pending friend request (only pending, not accepted/declined)
+    const { data: pendingRequest } = await supabase
+      .from('friend_requests')
+      .select('*')
+      .eq('from_user_id', user.id)
+      .eq('to_user_id', toUser.id)
+      .eq('status', 'pending')
+      .single();
+
+    if (pendingRequest) {
+      throw new Error('Friend request already sent to this user');
+    }
+  } else {
+    // If user doesn't exist yet, check for pending request by email
+    const { data: pendingRequest } = await supabase
+      .from('friend_requests')
+      .select('*')
+      .eq('from_user_id', user.id)
+      .eq('to_email', toEmail.toLowerCase().trim())
+      .eq('status', 'pending')
+      .single();
+
+    if (pendingRequest) {
+      throw new Error('Friend request already sent to this email');
     }
   }
 

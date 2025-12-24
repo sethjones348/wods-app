@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { sendReactionNotificationEmail } from './emailService';
 
 /**
  * Get reaction count for a workout
@@ -65,6 +66,54 @@ export async function addReaction(workoutId: string): Promise<void> {
       return; // Already reacted, no-op
     }
     throw new Error(`Failed to add reaction: ${error.message}`);
+  }
+
+  // Send email notification to workout owner (if not reacting to own workout)
+  try {
+    // Get workout owner information
+    const { data: workout, error: workoutError } = await supabase
+      .from('workouts')
+      .select('user_id, name, users!inner(id, name, email, settings)')
+      .eq('id', workoutId)
+      .single();
+
+    if (!workoutError && workout) {
+      const workoutOwner = Array.isArray(workout.users) ? workout.users[0] : workout.users;
+      
+      // Only send if:
+      // 1. Not reacting to own workout
+      // 2. Workout owner has email notifications enabled (or not set, defaults to enabled)
+      if (workoutOwner && workoutOwner.id !== user.id) {
+        const emailNotifications = workoutOwner.settings?.emailNotifications;
+        if (emailNotifications !== false) { // Default to true if not set
+          // Get reactor's name
+          const { data: reactor } = await supabase
+            .from('users')
+            .select('name')
+            .eq('id', user.id)
+            .single();
+
+          const reactorName = reactor?.name || 'Someone';
+          const ownerName = workoutOwner.name || 'User';
+          const workoutName = workout.name || 'Your workout';
+
+          // Send email notification (non-blocking)
+          sendReactionNotificationEmail(
+            workoutOwner.email,
+            ownerName,
+            reactorName,
+            workoutName,
+            workoutId
+          ).catch(error => {
+            console.error('Failed to send reaction notification email:', error);
+            // Don't throw - email failure shouldn't break the reaction
+          });
+        }
+      }
+    }
+  } catch (error) {
+    // Don't fail the reaction if email fails
+    console.error('Error sending reaction notification:', error);
   }
 }
 
