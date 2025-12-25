@@ -5,9 +5,10 @@ import { getUserProfile, updateUserProfile, UserProfile } from '../services/user
 import { getFollowing } from '../services/friendService';
 import { workoutStore } from '../store/workoutStore';
 import { supabase } from '../lib/supabase';
-import { Workout } from '../types';
+import { Workout, WorkoutElement, ScoreElement } from '../types';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWithinInterval, parseISO, startOfWeek, subDays } from 'date-fns';
 import { uploadProfilePicture } from '../services/profileImageService';
+import { normalizeMovementName } from '../utils/movementNormalizer';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -719,8 +720,8 @@ export default function ProfilePage() {
                   >
                     <span>
                       {movementAnalysisPeriod === '7days' ? 'Last 7 days' :
-                       movementAnalysisPeriod === '30days' ? 'Last 30 days' :
-                       'All time'}
+                        movementAnalysisPeriod === '30days' ? 'Last 30 days' :
+                          'All time'}
                     </span>
                     <svg
                       className={`w-4 h-4 text-gray-500 transition-transform ${showPeriodDropdown ? 'rotate-180' : ''}`}
@@ -747,9 +748,8 @@ export default function ProfilePage() {
                                 setMovementAnalysisPeriod(period);
                                 setShowPeriodDropdown(false);
                               }}
-                              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 ${
-                                movementAnalysisPeriod === period ? 'bg-blue-50 text-cf-red' : 'text-gray-700'
-                              }`}
+                              className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-50 ${movementAnalysisPeriod === period ? 'bg-blue-50 text-cf-red' : 'text-gray-700'
+                                }`}
                             >
                               {movementAnalysisPeriod === period && (
                                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -758,8 +758,8 @@ export default function ProfilePage() {
                               )}
                               <span className={movementAnalysisPeriod === period ? 'font-semibold' : ''}>
                                 {period === '7days' ? 'Last 7 days' :
-                                 period === '30days' ? 'Last 30 days' :
-                                 'All time'}
+                                  period === '30days' ? 'Last 30 days' :
+                                    'All time'}
                               </span>
                             </button>
                           ))}
@@ -774,7 +774,7 @@ export default function ProfilePage() {
                 // Filter workouts based on selected time period
                 const now = new Date();
                 let filteredWorkouts = workouts;
-                
+
                 if (movementAnalysisPeriod === '7days') {
                   const sevenDaysAgo = subDays(now, 7);
                   filteredWorkouts = workouts.filter((workout) => {
@@ -800,24 +800,79 @@ export default function ProfilePage() {
                 const movementStats: Record<string, { frequency: number; volume: number }> = {};
 
                 filteredWorkouts.forEach((workout) => {
-                  const movements = workout.extractedData.movements || [];
-                  const reps = workout.extractedData.reps || [];
-                  const rounds = workout.extractedData.rounds || 1;
+                  // Use new structure if available, otherwise fall back to old structure
+                  if (workout.workoutElements && workout.workoutElements.length > 0) {
+                    // New structure: use workoutElements
+                    workout.workoutElements.forEach((element: WorkoutElement) => {
+                      if (element.type === 'movement' && element.movement?.exercise) {
+                        const movementName = normalizeMovementName(element.movement.exercise).normalized;
+                        let repCount = 0;
 
-                  movements.forEach((movement, index) => {
-                    if (!movement || !movement.trim()) return;
+                        // Parse amount for volume calculation
+                        if (typeof element.movement.amount === 'number') {
+                          repCount = element.movement.amount;
+                        } else if (typeof element.movement.amount === 'string') {
+                          // Handle "21-15-9" or "5x5" formats
+                          if (element.movement.amount.includes('-')) {
+                            // Sum all values in a ladder (e.g., "21-15-9" = 45)
+                            repCount = element.movement.amount.split('-').reduce((sum: number, val: string) => {
+                              const num = parseInt(val.trim(), 10);
+                              return sum + (isNaN(num) ? 0 : num);
+                            }, 0);
+                          } else if (element.movement.amount.includes('x')) {
+                            // Handle sets x reps (e.g., "5x5" = 25)
+                            const parts = element.movement.amount.split('x');
+                            if (parts.length === 2) {
+                              const sets = parseInt(parts[0].trim(), 10) || 0;
+                              const reps = parseInt(parts[1].trim(), 10) || 0;
+                              repCount = sets * reps;
+                            }
+                          } else {
+                            repCount = parseInt(element.movement.amount, 10) || 0;
+                          }
+                        }
 
-                    const movementName = movement.trim();
-                    const repCount = reps[index] || 0;
-                    const totalReps = repCount * rounds;
+                        // Get rounds from score elements if available, otherwise default to 1
+                        let totalRounds = 1;
+                        if (workout.scoreElements && workout.scoreElements.length > 0) {
+                          workout.scoreElements.forEach((score: ScoreElement) => {
+                            if (score.metadata?.rounds) {
+                              totalRounds = Math.max(totalRounds, score.metadata.rounds);
+                            }
+                          });
+                        }
 
-                    if (!movementStats[movementName]) {
-                      movementStats[movementName] = { frequency: 0, volume: 0 };
-                    }
+                        const totalVolume = repCount * totalRounds;
 
-                    movementStats[movementName].frequency += 1;
-                    movementStats[movementName].volume += totalReps;
-                  });
+                        if (!movementStats[movementName]) {
+                          movementStats[movementName] = { frequency: 0, volume: 0 };
+                        }
+
+                        movementStats[movementName].frequency += 1;
+                        movementStats[movementName].volume += totalVolume;
+                      }
+                    });
+                  } else {
+                    // Old structure: use extractedData
+                    const movements = workout.extractedData.movements || [];
+                    const reps = workout.extractedData.reps || [];
+                    const rounds = workout.extractedData.rounds || 1;
+
+                    movements.forEach((movement, index) => {
+                      if (!movement || !movement.trim()) return;
+
+                      const movementName = normalizeMovementName(movement.trim()).normalized;
+                      const repCount = reps[index] || 0;
+                      const totalReps = repCount * rounds;
+
+                      if (!movementStats[movementName]) {
+                        movementStats[movementName] = { frequency: 0, volume: 0 };
+                      }
+
+                      movementStats[movementName].frequency += 1;
+                      movementStats[movementName].volume += totalReps;
+                    });
+                  }
                 });
 
                 // Sort by frequency (most frequent first), then by volume

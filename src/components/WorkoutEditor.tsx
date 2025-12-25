@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { WorkoutExtraction } from '../types';
-import { pluralizeMovement } from '../utils/movementUtils';
+import { WorkoutExtraction, WorkoutElement, ScoreElement, ScoreName } from '../types';
+import { normalizeMovementName } from '../utils/movementNormalizer';
+import { formatSecondsToTime, parseTimeToSeconds } from '../utils/timeUtils';
 import TimePicker from './TimePicker';
 
 interface WorkoutEditorProps {
@@ -11,6 +12,13 @@ interface WorkoutEditorProps {
   isSaving?: boolean;
 }
 
+const SCORE_NAMES: ScoreName[] = [
+  'Set 1', 'Set 2', 'Set 3', 'Set 4', 'Set 5',
+  'Round 1', 'Round 2', 'Round 3', 'Round 4', 'Round 5',
+  'Round 6', 'Round 7', 'Round 8', 'Round 9', 'Round 10',
+  'Finish Time', 'Total', 'Time Cap', 'Weight', 'Other',
+];
+
 export default function WorkoutEditor({
   extraction,
   imageUrl,
@@ -18,15 +26,28 @@ export default function WorkoutEditor({
   onCancel,
   isSaving = false,
 }: WorkoutEditorProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<WorkoutExtraction>({
     ...extraction,
     privacy: extraction.privacy || 'public',
   });
-  const [movementInput, setMovementInput] = useState('');
+
+  // Movement editing state
+  const [movementAmountInput, setMovementAmountInput] = useState('');
+  const [movementExerciseInput, setMovementExerciseInput] = useState('');
+  const [movementUnitInput, setMovementUnitInput] = useState('');
   const [editingMovementIndex, setEditingMovementIndex] = useState<number | null>(null);
-  const [editingMovementValue, setEditingMovementValue] = useState('');
-  const [editingTimeIndex, setEditingTimeIndex] = useState<number | null>(null);
-  const [editingTimeValue, setEditingTimeValue] = useState('');
+
+  // Descriptive element editing state
+  const [descriptiveTextInput, setDescriptiveTextInput] = useState('');
+  const [descriptiveTypeInput, setDescriptiveTypeInput] = useState('rest');
+
+  // Score editing state
+  const [editingScoreIndex, setEditingScoreIndex] = useState<number | null>(null);
+  const [scoreNameInput, setScoreNameInput] = useState<ScoreName>('Finish Time');
+  const [scoreTypeInput, setScoreTypeInput] = useState<'time' | 'reps' | 'weight' | 'other'>('time');
+  const [scoreValueInput, setScoreValueInput] = useState('');
+
+  // Date/time state
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [timeInputValue, setTimeInputValue] = useState('');
 
@@ -47,96 +68,7 @@ export default function WorkoutEditor({
     }
   }, [extraction]);
 
-  const handleAddMovement = () => {
-    if (movementInput.trim()) {
-      const movement = movementInput.trim();
-      // Pluralize if it starts with a number
-      const pluralizedMovement = pluralizeMovement(movement);
-      setFormData({
-        ...formData,
-        movements: [...formData.movements, pluralizedMovement],
-      });
-      setMovementInput('');
-    }
-  };
-
-  const handleRemoveMovement = (index: number) => {
-    setFormData({
-      ...formData,
-      movements: formData.movements.filter((_, i) => i !== index),
-    });
-  };
-
-  const handleStartEditMovement = (index: number) => {
-    setEditingMovementIndex(index);
-    setEditingMovementValue(formData.movements[index]);
-  };
-
-  const handleSaveEditMovement = (index: number) => {
-    if (editingMovementValue.trim()) {
-      const movement = editingMovementValue.trim();
-      // Pluralize if it starts with a number
-      const pluralizedMovement = pluralizeMovement(movement);
-      const newMovements = [...formData.movements];
-      newMovements[index] = pluralizedMovement;
-      setFormData({
-        ...formData,
-        movements: newMovements,
-      });
-    }
-    setEditingMovementIndex(null);
-    setEditingMovementValue('');
-  };
-
-  const handleCancelEditMovement = () => {
-    setEditingMovementIndex(null);
-    setEditingMovementValue('');
-  };
-
-  const handleAddTime = () => {
-    setFormData({
-      ...formData,
-      times: [...(formData.times || []), 0],
-    });
-  };
-
-  const handleUpdateTime = (index: number, value: number) => {
-    const newTimes = [...(formData.times || [])];
-    newTimes[index] = value;
-    setFormData({ ...formData, times: newTimes });
-  };
-
-  const handleRemoveTime = (index: number) => {
-    const newTimes = (formData.times || []).filter((_, i) => i !== index);
-    setFormData({
-      ...formData,
-      times: newTimes.length > 0 ? newTimes : null,
-    });
-  };
-
-  const handleAddRep = () => {
-    setFormData({
-      ...formData,
-      reps: [...(formData.reps || []), 0],
-    });
-  };
-
-  const handleUpdateRep = (index: number, value: number) => {
-    const newReps = [...(formData.reps || [])];
-    newReps[index] = value;
-    setFormData({ ...formData, reps: newReps });
-  };
-
-  const handleRemoveRep = (index: number) => {
-    const newReps = (formData.reps || []).filter((_, i) => i !== index);
-    setFormData({
-      ...formData,
-      reps: newReps.length > 0 ? newReps : null,
-    });
-  };
-
-
-  // Convert ISO string to local date string (YYYY-MM-DD)
+  // Date/time helpers
   const getLocalDateString = (isoString: string): string => {
     const date = new Date(isoString);
     const year = date.getFullYear();
@@ -145,30 +77,212 @@ export default function WorkoutEditor({
     return `${year}-${month}-${day}`;
   };
 
-  // Convert ISO string to local time string (HH:MM in 24-hour format)
-  const getLocalTimeString = (isoString: string): string => {
-    const date = new Date(isoString);
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-  };
-
-  // Convert local date and time to ISO string
-  const localDateTimeToISO = (dateStr: string, timeStr: string): string => {
-    const date = new Date(`${dateStr}T${timeStr}`);
+  const localDateTimeToISO = (dateStr: string, time24HourStr: string): string => {
+    const date = new Date(`${dateStr}T${time24HourStr}:00`);
     return date.toISOString();
   };
 
+  const parse12HourTime = (time12Hour: string): string | null => {
+    const match = time12Hour.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (!match) return null;
 
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3].toUpperCase();
 
-  const generateDefaultName = (): string => {
-    // Use first line of raw text, or fallback to rounds-type format
-    if (formData.rawText && formData.rawText.length > 0 && formData.rawText[0].trim()) {
-      return formData.rawText[0].trim();
+    if (ampm === 'PM' && hours !== 12) {
+      hours += 12;
+    } else if (ampm === 'AM' && hours === 12) {
+      hours = 0;
     }
-    const rounds = formData.rounds || 0;
-    const type = formData.type === 'unknown' ? 'Workout' : formData.type.charAt(0).toUpperCase() + formData.type.slice(1);
-    return rounds > 0 ? `${rounds}-${type} Workout` : `${type} Workout`;
+
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  };
+
+  // Workout element handlers
+  const handleAddMovement = () => {
+    if (movementExerciseInput.trim()) {
+      const normalized = normalizeMovementName(movementExerciseInput.trim());
+      const newElement: WorkoutElement = {
+        type: 'movement',
+        movement: {
+          amount: movementAmountInput.trim() || 0,
+          exercise: normalized.normalized,
+          unit: movementUnitInput.trim() || null,
+        },
+      };
+      setFormData({
+        ...formData,
+        workout: [...formData.workout, newElement],
+      });
+      setMovementAmountInput('');
+      setMovementExerciseInput('');
+      setMovementUnitInput('');
+    }
+  };
+
+  const handleAddDescriptive = () => {
+    if (descriptiveTextInput.trim()) {
+      // Parse duration from text (e.g., "Rest 3:00" = 180 seconds)
+      let duration: number | undefined;
+      const restMatch = descriptiveTextInput.match(/rest\s+(\d+):(\d+)/i);
+      if (restMatch) {
+        const minutes = parseInt(restMatch[1], 10);
+        const seconds = parseInt(restMatch[2], 10);
+        duration = minutes * 60 + seconds;
+      } else {
+        const restMatch2 = descriptiveTextInput.match(/rest\s+(\d+):(\d+)/i);
+        if (restMatch2) {
+          const minutes = parseInt(restMatch2[1], 10);
+          const seconds = parseInt(restMatch2[2], 10);
+          duration = minutes * 60 + seconds;
+        }
+      }
+
+      const newElement: WorkoutElement = {
+        type: 'descriptive',
+        descriptive: {
+          text: descriptiveTextInput.trim(),
+          type: descriptiveTypeInput || null,
+          duration,
+        },
+      };
+      setFormData({
+        ...formData,
+        workout: [...formData.workout, newElement],
+      });
+      setDescriptiveTextInput('');
+    }
+  };
+
+  const handleRemoveWorkoutElement = (index: number) => {
+    setFormData({
+      ...formData,
+      workout: formData.workout.filter((_, i) => i !== index),
+    });
+  };
+
+  const handleStartEditMovement = (index: number) => {
+    const element = formData.workout[index];
+    if (element.type === 'movement' && element.movement) {
+      setEditingMovementIndex(index);
+      setMovementAmountInput(String(element.movement.amount || ''));
+      setMovementExerciseInput(element.movement.exercise || '');
+      setMovementUnitInput(element.movement.unit || '');
+    }
+  };
+
+  const handleSaveEditMovement = (index: number) => {
+    if (movementExerciseInput.trim()) {
+      const normalized = normalizeMovementName(movementExerciseInput.trim());
+      const newWorkout = [...formData.workout];
+      newWorkout[index] = {
+        type: 'movement',
+        movement: {
+          amount: movementAmountInput.trim() || 0,
+          exercise: normalized.normalized,
+          unit: movementUnitInput.trim() || null,
+        },
+      };
+      setFormData({ ...formData, workout: newWorkout });
+      setEditingMovementIndex(null);
+      setMovementAmountInput('');
+      setMovementExerciseInput('');
+      setMovementUnitInput('');
+    }
+  };
+
+  // Score element handlers
+  const handleAddScore = () => {
+    if (scoreValueInput.trim()) {
+      const metadata: any = {};
+      
+      if (scoreTypeInput === 'time') {
+        const timeInSeconds = parseTimeToSeconds(scoreValueInput);
+        if (timeInSeconds !== null) {
+          metadata.timeInSeconds = timeInSeconds;
+        }
+      } else if (scoreTypeInput === 'reps') {
+        // Try to parse "rounds + reps" format
+        const roundsMatch = scoreValueInput.match(/(\d+)\s*rounds?\s*\+\s*(\d+)\s*reps?/i);
+        if (roundsMatch) {
+          metadata.rounds = parseInt(roundsMatch[1], 10);
+          metadata.repsIntoNextRound = parseInt(roundsMatch[2], 10);
+        }
+      } else if (scoreTypeInput === 'weight') {
+        const weight = parseFloat(scoreValueInput);
+        if (!isNaN(weight)) {
+          metadata.weight = weight;
+        }
+      }
+
+      const newScore: ScoreElement = {
+        name: scoreNameInput,
+        type: scoreTypeInput,
+        value: scoreValueInput.trim(),
+        metadata: Object.keys(metadata).length > 0 ? metadata : null,
+      };
+
+      setFormData({
+        ...formData,
+        score: [...formData.score, newScore],
+      });
+      setScoreValueInput('');
+      setScoreNameInput('Finish Time');
+      setScoreTypeInput('time');
+    }
+  };
+
+  const handleRemoveScore = (index: number) => {
+    setFormData({
+      ...formData,
+      score: formData.score.filter((_, i) => i !== index),
+    });
+  };
+
+  const handleStartEditScore = (index: number) => {
+    const score = formData.score[index];
+    setEditingScoreIndex(index);
+    setScoreNameInput(score.name);
+    setScoreTypeInput(score.type);
+    setScoreValueInput(String(score.value));
+  };
+
+  const handleSaveEditScore = (index: number) => {
+    if (scoreValueInput.trim()) {
+      const metadata: any = {};
+      
+      if (scoreTypeInput === 'time') {
+        const timeInSeconds = parseTimeToSeconds(scoreValueInput);
+        if (timeInSeconds !== null) {
+          metadata.timeInSeconds = timeInSeconds;
+        }
+      } else if (scoreTypeInput === 'reps') {
+        const roundsMatch = scoreValueInput.match(/(\d+)\s*rounds?\s*\+\s*(\d+)\s*reps?/i);
+        if (roundsMatch) {
+          metadata.rounds = parseInt(roundsMatch[1], 10);
+          metadata.repsIntoNextRound = parseInt(roundsMatch[2], 10);
+        }
+      } else if (scoreTypeInput === 'weight') {
+        const weight = parseFloat(scoreValueInput);
+        if (!isNaN(weight)) {
+          metadata.weight = weight;
+        }
+      }
+
+      const newScore: ScoreElement = {
+        name: scoreNameInput,
+        type: scoreTypeInput,
+        value: scoreValueInput.trim(),
+        metadata: Object.keys(metadata).length > 0 ? metadata : null,
+      };
+
+      const newScores = [...formData.score];
+      newScores[index] = newScore;
+      setFormData({ ...formData, score: newScores });
+      setEditingScoreIndex(null);
+      setScoreValueInput('');
+    }
   };
 
   return (
@@ -186,27 +300,39 @@ export default function WorkoutEditor({
       )}
 
       <div className="space-y-6">
-        {/* Workout Name */}
+        {/* Title */}
         <div>
           <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-            Workout Name
+            Workout Title
           </label>
           <input
             type="text"
-            value={formData.name || ''}
+            value={formData.title || ''}
             onChange={(e) =>
               setFormData({
                 ...formData,
-                name: e.target.value,
+                title: e.target.value,
               })
             }
             className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
-            placeholder={generateDefaultName()}
+            placeholder="Enter workout title"
           />
-          <p className="text-xs text-gray-500 mt-1">
-            Leave empty to use default: {generateDefaultName()}
-          </p>
         </div>
+
+        {/* Description (read-only) */}
+        {formData.description && (
+          <div>
+            <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
+              Description
+            </label>
+            <p className="text-gray-700 bg-gray-50 p-3 rounded border border-gray-200">
+              {formData.description}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Description is generated by AI and cannot be edited
+            </p>
+          </div>
+        )}
 
         {/* Date and Time */}
         <div>
@@ -222,22 +348,14 @@ export default function WorkoutEditor({
                 onChange={(e) => {
                   const dateValue = e.target.value;
                   if (dateValue && formData.date) {
-                    // Preserve existing time, just update date
-                    const timeStr = getLocalTimeString(formData.date);
-                    const newISO = localDateTimeToISO(dateValue, timeStr);
-                    setFormData({
-                      ...formData,
-                      date: newISO,
-                    });
+                    const time24Hour = parse12HourTime(timeInputValue) || '12:00';
+                    const newISO = localDateTimeToISO(dateValue, time24Hour);
+                    setFormData({ ...formData, date: newISO });
                   } else if (dateValue) {
-                    // No existing date, use current time
                     const now = new Date();
                     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
                     const newISO = localDateTimeToISO(dateValue, timeStr);
-                    setFormData({
-                      ...formData,
-                      date: newISO,
-                    });
+                    setFormData({ ...formData, date: newISO });
                   }
                 }}
                 className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none min-h-[44px]"
@@ -254,48 +372,35 @@ export default function WorkoutEditor({
                       onChange={(e) => {
                         const value = e.target.value;
                         setTimeInputValue(value);
-                        // Try to parse and update if valid format
-                        if (formData.date && /^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(value)) {
-                          const match = value.match(/(\d+):(\d+)\s*(AM|PM)/i);
-                          if (match) {
-                            let hours = parseInt(match[1], 10);
-                            const minutes = parseInt(match[2], 10);
-                            const ampm = match[3].toUpperCase();
-                            
-                            if (ampm === 'PM' && hours !== 12) {
-                              hours += 12;
-                            } else if (ampm === 'AM' && hours === 12) {
-                              hours = 0;
-                            }
-                            
-                            const dateStr = getLocalDateString(formData.date);
-                            const time24Hour = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-                            const newISO = localDateTimeToISO(dateStr, time24Hour);
-                            setFormData({ ...formData, date: newISO });
-                          }
+                        const parsed = parse12HourTime(value);
+                        if (parsed && formData.date) {
+                          const dateStr = getLocalDateString(formData.date);
+                          const newISO = localDateTimeToISO(dateStr, parsed);
+                          setFormData({ ...formData, date: newISO });
                         }
                       }}
                       onBlur={(e) => {
-                        // Format on blur if invalid
                         const value = e.target.value;
-                        if (formData.date && (!value || !/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(value))) {
-                          const d = new Date(formData.date);
-                          let hours = d.getHours();
-                          const minutes = d.getMinutes();
-                          const ampm = hours >= 12 ? 'PM' : 'AM';
-                          hours = hours % 12;
-                          hours = hours ? hours : 12;
-                          setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
+                        if (!value || !parse12HourTime(value)) {
+                          if (formData.date) {
+                            const d = new Date(formData.date);
+                            let hours = d.getHours();
+                            const minutes = d.getMinutes();
+                            const ampm = hours >= 12 ? 'PM' : 'AM';
+                            hours = hours % 12;
+                            hours = hours ? hours : 12;
+                            setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
+                          }
                         }
                       }}
                       placeholder="hh:mm AM/PM"
-                      className="w-full px-4 py-2 pr-10 border-2 border-gray-200 rounded focus:border-cf-red outline-none min-h-[44px] bg-white"
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none min-h-[44px] pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowTimePicker(!showTimePicker)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-cf-red transition-colors"
-                      title="Select time"
+                      className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-600 hover:text-cf-red focus:outline-none"
+                      title="Open time picker"
                     >
                       <svg
                         className="w-5 h-5"
@@ -314,25 +419,15 @@ export default function WorkoutEditor({
                   </div>
                   {showTimePicker && (
                     <>
-                      {/* Backdrop */}
                       <div
                         className="fixed inset-0 z-40"
                         onClick={() => setShowTimePicker(false)}
                       />
-                      {/* Time Picker Dropdown */}
                       <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white border-2 border-gray-200 rounded-lg shadow-lg">
                         <TimePicker
                           value={formData.date}
                           onChange={(isoString) => {
                             setFormData({ ...formData, date: isoString });
-                            // Update the input value to match
-                            const d = new Date(isoString);
-                            let hours = d.getHours();
-                            const minutes = d.getMinutes();
-                            const ampm = hours >= 12 ? 'PM' : 'AM';
-                            hours = hours % 12;
-                            hours = hours ? hours : 12;
-                            setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
                           }}
                         />
                         <div className="flex justify-end gap-2 p-3 border-t border-gray-200">
@@ -345,19 +440,7 @@ export default function WorkoutEditor({
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              setShowTimePicker(false);
-                              // Update input value when OK is clicked
-                              if (formData.date) {
-                                const d = new Date(formData.date);
-                                let hours = d.getHours();
-                                const minutes = d.getMinutes();
-                                const ampm = hours >= 12 ? 'PM' : 'AM';
-                                hours = hours % 12;
-                                hours = hours ? hours : 12;
-                                setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
-                              }
-                            }}
+                            onClick={() => setShowTimePicker(false)}
                             className="px-4 py-2 bg-cf-red text-white rounded font-semibold hover:bg-cf-red-hover transition-colors"
                           >
                             OK
@@ -372,170 +455,151 @@ export default function WorkoutEditor({
               )}
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Date and time from photo metadata or upload date/time
-          </p>
         </div>
 
-        {/* Workout Type */}
+        {/* Workout Elements */}
         <div>
           <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-            Workout Type
+            Workout Elements
           </label>
-          <select
-            value={formData.type}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                type: e.target.value as 'time' | 'reps' | 'unknown',
-              })
-            }
-            className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
-          >
-            <option value="unknown">Unknown</option>
-            <option value="time">Time</option>
-            <option value="reps">Reps</option>
-          </select>
-        </div>
-
-        {/* Rounds */}
-        <div>
-          <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-            Rounds
-          </label>
-          <input
-            type="number"
-            value={formData.rounds || ''}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                rounds: e.target.value ? parseInt(e.target.value) : null,
-              })
-            }
-            className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
-            placeholder="Number of rounds"
-          />
-        </div>
-
-        {/* Movements */}
-        <div>
-          <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-            Movements
-          </label>
-          <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={movementInput}
-              onChange={(e) => setMovementInput(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddMovement();
-                }
-              }}
-              className="flex-1 px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
-              placeholder="Add movement"
-            />
+          
+          {/* Add Movement */}
+          <div className="mb-4 p-4 bg-gray-50 rounded border border-gray-200">
+            <h3 className="text-sm font-semibold mb-2">Add Movement</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
+              <input
+                type="text"
+                value={movementAmountInput}
+                onChange={(e) => setMovementAmountInput(e.target.value)}
+                placeholder="Amount (e.g., 21-15-9, 5x5)"
+                className="px-3 py-2 border border-gray-300 rounded focus:border-cf-red outline-none text-sm"
+              />
+              <input
+                type="text"
+                value={movementExerciseInput}
+                onChange={(e) => setMovementExerciseInput(e.target.value)}
+                placeholder="Exercise"
+                className="px-3 py-2 border border-gray-300 rounded focus:border-cf-red outline-none text-sm"
+              />
+              <input
+                type="text"
+                value={movementUnitInput}
+                onChange={(e) => setMovementUnitInput(e.target.value)}
+                placeholder="Unit (e.g., 135, lbs)"
+                className="px-3 py-2 border border-gray-300 rounded focus:border-cf-red outline-none text-sm"
+              />
+            </div>
             <button
               onClick={handleAddMovement}
-              className="bg-cf-red text-white px-4 py-2 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all min-h-[44px]"
+              className="bg-cf-red text-white px-4 py-2 rounded text-sm font-semibold hover:bg-cf-red-hover"
+            >
+              Add Movement
+            </button>
+          </div>
+
+          {/* Add Descriptive */}
+          <div className="mb-4 p-4 bg-gray-50 rounded border border-gray-200">
+            <h3 className="text-sm font-semibold mb-2">Add Rest/Instruction</h3>
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text"
+                value={descriptiveTextInput}
+                onChange={(e) => setDescriptiveTextInput(e.target.value)}
+                placeholder="e.g., Rest 3:00"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded focus:border-cf-red outline-none text-sm"
+              />
+              <select
+                value={descriptiveTypeInput}
+                onChange={(e) => setDescriptiveTypeInput(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded focus:border-cf-red outline-none text-sm"
+              >
+                <option value="rest">Rest</option>
+                <option value="repeat">Repeat</option>
+                <option value="instruction">Instruction</option>
+              </select>
+            </div>
+            <button
+              onClick={handleAddDescriptive}
+              className="bg-gray-600 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-gray-700"
             >
               Add
             </button>
           </div>
+
+          {/* List Elements */}
           <div className="space-y-2">
-            {formData.movements.map((movement, index) => (
+            {formData.workout.map((element, index) => (
               <div
                 key={index}
                 className="flex items-center justify-between bg-gray-50 p-3 rounded border border-gray-200"
               >
-                {editingMovementIndex === index ? (
-                  <>
+                {editingMovementIndex === index && element.type === 'movement' ? (
+                  <div className="flex-1 grid grid-cols-3 gap-2">
                     <input
                       type="text"
-                      value={editingMovementValue}
-                      onChange={(e) => setEditingMovementValue(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSaveEditMovement(index);
-                        } else if (e.key === 'Escape') {
-                          handleCancelEditMovement();
-                        }
-                      }}
-                      className="flex-1 px-2 py-1 border-2 border-cf-red rounded focus:outline-none"
-                      autoFocus
+                      value={movementAmountInput}
+                      onChange={(e) => setMovementAmountInput(e.target.value)}
+                      className="px-2 py-1 border-2 border-cf-red rounded text-sm"
                     />
-                    <div className="flex gap-2 ml-2">
+                    <input
+                      type="text"
+                      value={movementExerciseInput}
+                      onChange={(e) => setMovementExerciseInput(e.target.value)}
+                      className="px-2 py-1 border-2 border-cf-red rounded text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={movementUnitInput}
+                      onChange={(e) => setMovementUnitInput(e.target.value)}
+                      className="px-2 py-1 border-2 border-cf-red rounded text-sm"
+                      placeholder="Unit"
+                    />
+                    <div className="col-span-3 flex gap-2">
                       <button
                         onClick={() => handleSaveEditMovement(index)}
-                        className="text-green-600 hover:text-green-800 hover:bg-green-50 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
-                        title="Save"
+                        className="text-green-600 hover:text-green-800 text-sm"
                       >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={3}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
+                        Save
                       </button>
                       <button
-                        onClick={handleCancelEditMovement}
-                        className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
-                        title="Cancel"
+                        onClick={() => setEditingMovementIndex(null)}
+                        className="text-gray-600 hover:text-gray-800 text-sm"
                       >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={3}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
+                        Cancel
                       </button>
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <>
-                    <span>{movement}</span>
-                    <button
-                      onClick={() => handleStartEditMovement(index)}
-                      className="text-cf-red hover:text-cf-red-hover ml-2 p-1 min-w-[32px] min-h-[32px] flex items-center justify-center"
-                      title="Edit movement"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </button>
-                    <div className="flex-1"></div>
+                    <div className="flex-1">
+                      {element.type === 'movement' && element.movement ? (
+                        <span>
+                          {element.movement.amount} {element.movement.exercise}
+                          {element.movement.unit && ` ${element.movement.unit}`}
+                        </span>
+                      ) : element.type === 'descriptive' && element.descriptive ? (
+                        <span className="text-gray-600 italic">
+                          {element.descriptive.text}
+                          {element.descriptive.duration && ` (${element.descriptive.duration}s)`}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex gap-2">
+                      {element.type === 'movement' && (
+                        <button
+                          onClick={() => handleStartEditMovement(index)}
+                          className="text-cf-red hover:text-cf-red-hover text-sm"
+                        >
+                          Edit
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleRemoveMovement(index)}
-                        className="text-red-600 hover:text-red-800 px-2 py-1 min-h-[32px]"
-                        title="Remove movement"
+                        onClick={() => handleRemoveWorkoutElement(index)}
+                        className="text-red-600 hover:text-red-800 text-sm"
                       >
                         Remove
                       </button>
+                    </div>
                   </>
                 )}
               </div>
@@ -543,185 +607,129 @@ export default function WorkoutEditor({
           </div>
         </div>
 
-        {/* Times */}
-        {(formData.type === 'time' || (formData.times && formData.times.length > 0)) && (
-          <div>
-            <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-              Times (MM:SS)
-            </label>
-            <div className="space-y-2">
-              {formData.times?.map((time, index) => {
-                const minutes = Math.floor(time / 60);
-                const seconds = time % 60;
-                const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-                const isEditing = editingTimeIndex === index;
-                const displayValue = isEditing ? editingTimeValue : formattedTime;
-                
-                return (
-                  <div key={index} className="flex items-center gap-2">
-                    <span className="w-20 text-sm">Round {index + 1}:</span>
-                    <input
-                      type="text"
-                      value={displayValue}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        // Allow free typing - just store the raw value
-                        setEditingTimeValue(value);
-                        setEditingTimeIndex(index);
-                      }}
-                      onFocus={() => {
-                        // When focusing, use the raw formatted time
-                        setEditingTimeValue(formattedTime);
-                        setEditingTimeIndex(index);
-                      }}
-                      onBlur={() => {
-                        // Parse and format on blur
-                        const value = editingTimeValue.trim();
-                        let parsedSeconds = 0;
-                        
-                        if (value === '') {
-                          // Empty, keep current value
-                          setEditingTimeIndex(null);
-                          return;
-                        }
-                        
-                        // Try to parse MM:SS format
-                        if (value.includes(':')) {
-                          const parts = value.split(':');
-                          if (parts.length === 2) {
-                            const mins = Math.max(0, Math.min(59, parseInt(parts[0], 10) || 0));
-                            const secs = Math.max(0, Math.min(59, parseInt(parts[1], 10) || 0));
-                            parsedSeconds = mins * 60 + secs;
-                          } else {
-                            // Invalid format, revert
-                            setEditingTimeIndex(null);
-                            return;
-                          }
-                        } else {
-                          // Just a number - treat as seconds
-                          parsedSeconds = Math.max(0, parseInt(value, 10) || 0);
-                        }
-                        
-                        // Update the time
-                        handleUpdateTime(index, parsedSeconds);
-                        setEditingTimeIndex(null);
-                        setEditingTimeValue('');
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.currentTarget.blur();
-                        } else if (e.key === 'Escape') {
-                          setEditingTimeIndex(null);
-                          setEditingTimeValue('');
-                          e.currentTarget.blur();
-                        }
-                      }}
-                      className="flex-1 px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
-                      placeholder="MM:SS or seconds"
-                    />
-                    <button
-                      onClick={() => handleRemoveTime(index)}
-                      className="text-red-600 hover:text-red-800 hover:bg-red-50 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
-                      title="Remove this round"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={3}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              })}
-              <button
-                onClick={handleAddTime}
-                className="text-cf-red hover:underline text-sm font-semibold"
-              >
-                + Add Time
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Reps */}
-        {(formData.type === 'reps' || (formData.reps && formData.reps.length > 0)) && (
-          <div>
-            <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-              Reps
-            </label>
-            <div className="space-y-2">
-              {formData.reps?.map((rep, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <span className="w-20 text-sm">Round {index + 1}:</span>
-                  <input
-                    type="number"
-                    value={rep || ''}
-                    onChange={(e) =>
-                      handleUpdateRep(index, parseInt(e.target.value) || 0)
-                    }
-                    className="flex-1 px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
-                    placeholder="Reps"
-                  />
-                  <button
-                    onClick={() => handleRemoveRep(index)}
-                    className="text-red-600 hover:text-red-800 hover:bg-red-50 min-w-[32px] min-h-[32px] flex items-center justify-center rounded transition-colors"
-                    title="Remove this round"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={3}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={handleAddRep}
-                className="text-cf-red hover:underline text-sm font-semibold"
-              >
-                + Add Reps
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Raw Text */}
+        {/* Score Elements */}
         <div>
           <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-            Raw Text
+            Score/Results
           </label>
-          <textarea
-            value={formData.rawText.join('\n')}
-            onChange={(e) => {
-              const lines = e.target.value.split('\n');
-              setFormData({
-                ...formData,
-                rawText: lines,
-              });
-            }}
-            rows={Math.max(4, Math.min(formData.rawText.length + 2, 12))}
-            className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none font-mono text-sm bg-gray-50"
-            placeholder="Raw text extracted from image (one line per row)"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Edit the raw text extracted from the image. Each line represents a row from the whiteboard.
-          </p>
+
+          {/* Add Score */}
+          <div className="mb-4 p-4 bg-gray-50 rounded border border-gray-200">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
+              <select
+                value={scoreNameInput}
+                onChange={(e) => setScoreNameInput(e.target.value as ScoreName)}
+                className="px-3 py-2 border border-gray-300 rounded focus:border-cf-red outline-none text-sm"
+              >
+                {SCORE_NAMES.map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+              <select
+                value={scoreTypeInput}
+                onChange={(e) => setScoreTypeInput(e.target.value as any)}
+                className="px-3 py-2 border border-gray-300 rounded focus:border-cf-red outline-none text-sm"
+              >
+                <option value="time">Time</option>
+                <option value="reps">Reps</option>
+                <option value="weight">Weight</option>
+                <option value="other">Other</option>
+              </select>
+              <input
+                type="text"
+                value={scoreValueInput}
+                onChange={(e) => setScoreValueInput(e.target.value)}
+                placeholder="Value (e.g., 4:06, 315)"
+                className="px-3 py-2 border border-gray-300 rounded focus:border-cf-red outline-none text-sm"
+              />
+            </div>
+            <button
+              onClick={handleAddScore}
+              className="bg-cf-red text-white px-4 py-2 rounded text-sm font-semibold hover:bg-cf-red-hover"
+            >
+              Add Score
+            </button>
+          </div>
+
+          {/* List Scores */}
+          <div className="space-y-2">
+            {formData.score.map((score, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between bg-gray-50 p-3 rounded border border-gray-200"
+              >
+                {editingScoreIndex === index ? (
+                  <div className="flex-1 grid grid-cols-3 gap-2">
+                    <select
+                      value={scoreNameInput}
+                      onChange={(e) => setScoreNameInput(e.target.value as ScoreName)}
+                      className="px-2 py-1 border-2 border-cf-red rounded text-sm"
+                    >
+                      {SCORE_NAMES.map(name => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={scoreTypeInput}
+                      onChange={(e) => setScoreTypeInput(e.target.value as any)}
+                      className="px-2 py-1 border-2 border-cf-red rounded text-sm"
+                    >
+                      <option value="time">Time</option>
+                      <option value="reps">Reps</option>
+                      <option value="weight">Weight</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={scoreValueInput}
+                      onChange={(e) => setScoreValueInput(e.target.value)}
+                      className="px-2 py-1 border-2 border-cf-red rounded text-sm"
+                    />
+                    <div className="col-span-3 flex gap-2">
+                      <button
+                        onClick={() => handleSaveEditScore(index)}
+                        className="text-green-600 hover:text-green-800 text-sm"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingScoreIndex(null)}
+                        className="text-gray-600 hover:text-gray-800 text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1">
+                      <span className="font-semibold">{score.name}:</span>{' '}
+                      <span>{score.value}</span>
+                      {score.metadata?.timeInSeconds && (
+                        <span className="text-xs text-gray-500 ml-2">
+                          ({formatSecondsToTime(score.metadata.timeInSeconds)})
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleStartEditScore(index)}
+                        className="text-cf-red hover:text-cf-red-hover text-sm"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleRemoveScore(index)}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Privacy Setting */}
@@ -742,11 +750,6 @@ export default function WorkoutEditor({
             <option value="public">Public</option>
             <option value="private">Private</option>
           </select>
-          <p className="text-xs text-gray-500 mt-1">
-            {formData.privacy === 'private' 
-              ? 'Private workouts are only visible to you'
-              : 'Public workouts are visible to everyone'}
-          </p>
         </div>
 
         {/* Actions */}
@@ -796,4 +799,3 @@ export default function WorkoutEditor({
     </div>
   );
 }
-

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Workout, WorkoutExtraction } from '../types';
+import { Workout, WorkoutExtraction, OldWorkoutExtraction } from '../types';
 import { supabaseStorage } from '../services/supabaseStorage';
 import { workoutCache } from '../services/workoutCache';
 import { v4 as uuidv4 } from 'uuid';
@@ -9,8 +9,8 @@ interface WorkoutStore {
   isLoading: boolean;
   error: string | null;
   loadWorkouts: (userId: string) => Promise<void>;
-  saveWorkout: (extraction: WorkoutExtraction & { imageUrl: string }, userId: string) => Promise<void>;
-  updateWorkout: (id: string, extraction: WorkoutExtraction & { imageUrl: string }, userId: string) => Promise<void>;
+  saveWorkout: (extraction: (WorkoutExtraction | OldWorkoutExtraction) & { imageUrl: string }, userId: string) => Promise<void>;
+  updateWorkout: (id: string, extraction: (WorkoutExtraction | OldWorkoutExtraction) & { imageUrl: string }, userId: string) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
   syncFromSupabase: (userId: string) => Promise<void>;
 }
@@ -99,48 +99,102 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
     }, 60000); // 60 second timeout for entire save operation
 
     try {
-      // Generate default name if not provided
-      const generateDefaultName = (): string => {
-        // Use first line of raw text, or fallback to rounds-type format
-        if (extraction.rawText && extraction.rawText.length > 0 && extraction.rawText[0].trim()) {
-          return extraction.rawText[0].trim();
-        }
-        const rounds = extraction.rounds || 0;
-        const type = extraction.type === 'unknown' ? 'Workout' : extraction.type.charAt(0).toUpperCase() + extraction.type.slice(1);
-        return rounds > 0 ? `${rounds}-${type} Workout` : `${type} Workout`;
-      };
+      // Check if this is new structure (has workout and score arrays)
+      const isNewStructure = 'workout' in extraction && 'score' in extraction &&
+        Array.isArray(extraction.workout) && Array.isArray(extraction.score);
 
-      const workout: Workout = {
-        id: uuidv4(),
-        name: extraction.name?.trim() || generateDefaultName(),
-        date: extraction.date || new Date().toISOString(),
-        rawText: extraction.rawText,
-        privacy: extraction.privacy || 'public',
-        extractedData: {
-          type: extraction.type,
-          rounds: extraction.rounds,
-          movements: extraction.movements,
-          times: extraction.times,
-          reps: extraction.reps,
-        },
-        imageUrl: extraction.imageUrl,
-        metadata: {
-          confidence: extraction.confidence,
-        },
-      };
+      if (isNewStructure) {
+        // New structure - save directly
+        const workoutId = uuidv4();
+        const workoutToSave = {
+          ...extraction,
+          id: workoutId,
+        };
 
-      // Save to both Supabase and cache
-      // Save to Supabase and cache
-      await Promise.all([
-        supabaseStorage.saveWorkout(workout, userId),
-        workoutCache.saveWorkout(workout),
-      ]);
+        // Save to Supabase (new structure)
+        await supabaseStorage.saveWorkout(workoutToSave, userId);
 
-      clearTimeout(timeoutId);
-      set((state) => ({
-        workouts: [workout, ...state.workouts],
-        isLoading: false,
-      }));
+        // Convert to old Workout format for cache and state (backward compatibility)
+        // TODO: Update cache and state to use new structure
+        const workout: Workout = {
+          id: workoutId,
+          name: extraction.title || 'Workout',
+          date: extraction.date || new Date().toISOString(),
+          rawText: [], // Will be generated from structured data
+          privacy: extraction.privacy || 'public',
+          extractedData: {
+            type: 'unknown', // Not applicable in new structure
+            rounds: null,
+            movements: extraction.workout
+              .filter((el: any) => el.type === 'movement' && el.movement)
+              .map((el: any) => {
+                const m = el.movement;
+                return m.unit ? `${m.amount} ${m.exercise} ${m.unit}` : `${m.amount} ${m.exercise}`;
+              }),
+            times: extraction.score
+              .filter((s: any) => s.type === 'time' && s.metadata?.timeInSeconds)
+              .map((s: any) => s.metadata.timeInSeconds),
+            reps: extraction.score
+              .filter((s: any) => s.type === 'reps' && s.metadata?.totalReps)
+              .map((s: any) => s.metadata.totalReps),
+          },
+          imageUrl: extraction.imageUrl,
+          metadata: {
+            confidence: extraction.confidence,
+          },
+        };
+
+        await workoutCache.saveWorkout(workout);
+
+        clearTimeout(timeoutId);
+        set((state) => ({
+          workouts: [workout, ...state.workouts],
+          isLoading: false,
+        }));
+      } else {
+        // Old structure - convert to Workout format
+        const oldExtraction = extraction as OldWorkoutExtraction & { imageUrl: string };
+        const generateDefaultName = (): string => {
+          // Use first line of raw text, or fallback to rounds-type format
+          if (oldExtraction.rawText && oldExtraction.rawText.length > 0 && oldExtraction.rawText[0].trim()) {
+            return oldExtraction.rawText[0].trim();
+          }
+          const rounds = oldExtraction.rounds || 0;
+          const type = oldExtraction.type === 'unknown' ? 'Workout' : oldExtraction.type.charAt(0).toUpperCase() + oldExtraction.type.slice(1);
+          return rounds > 0 ? `${rounds}-${type} Workout` : `${type} Workout`;
+        };
+
+        const workout: Workout = {
+          id: uuidv4(),
+          name: oldExtraction.name?.trim() || generateDefaultName(),
+          date: oldExtraction.date || new Date().toISOString(),
+          rawText: oldExtraction.rawText,
+          privacy: oldExtraction.privacy || 'public',
+          extractedData: {
+            type: oldExtraction.type,
+            rounds: oldExtraction.rounds,
+            movements: oldExtraction.movements,
+            times: oldExtraction.times,
+            reps: oldExtraction.reps,
+          },
+          imageUrl: oldExtraction.imageUrl,
+          metadata: {
+            confidence: oldExtraction.confidence,
+          },
+        };
+
+        // Save to both Supabase and cache
+        await Promise.all([
+          supabaseStorage.saveWorkout(workout, userId),
+          workoutCache.saveWorkout(workout),
+        ]);
+
+        clearTimeout(timeoutId);
+        set((state) => ({
+          workouts: [workout, ...state.workouts],
+          isLoading: false,
+        }));
+      }
     } catch (error) {
       clearTimeout(timeoutId);
       const errorMessage = error instanceof Error ? error.message : 'Failed to save workout';
@@ -160,46 +214,103 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
         throw new Error('Workout not found');
       }
 
-      // Generate default name if not provided
-      const generateDefaultName = (): string => {
-        if (extraction.rawText && extraction.rawText.length > 0 && extraction.rawText[0].trim()) {
-          return extraction.rawText[0].trim();
-        }
-        const rounds = extraction.rounds || 0;
-        const type = extraction.type === 'unknown' ? 'Workout' : extraction.type.charAt(0).toUpperCase() + extraction.type.slice(1);
-        return rounds > 0 ? `${rounds}-${type} Workout` : `${type} Workout`;
-      };
+      // Check if this is new structure
+      const isNewStructure = 'workout' in extraction && 'score' in extraction &&
+        Array.isArray(extraction.workout) && Array.isArray(extraction.score);
 
-      const updatedWorkout: Workout = {
-        ...existingWorkout,
-        name: extraction.name?.trim() || generateDefaultName(),
-        date: extraction.date || existingWorkout.date,
-        rawText: extraction.rawText,
-        privacy: extraction.privacy || 'public',
-        extractedData: {
-          type: extraction.type,
-          rounds: extraction.rounds,
-          movements: extraction.movements,
-          times: extraction.times,
-          reps: extraction.reps,
-        },
-        imageUrl: extraction.imageUrl,
-        metadata: {
-          ...existingWorkout.metadata,
-          confidence: extraction.confidence,
-        },
-      };
+      if (isNewStructure) {
+        // New structure - save directly
+        const workoutToSave = {
+          ...extraction,
+          id: existingWorkout.id,
+        };
 
-      // Update in both Supabase and cache
-      await Promise.all([
-        supabaseStorage.saveWorkout(updatedWorkout, userId),
-        workoutCache.saveWorkout(updatedWorkout),
-      ]);
+        // Save to Supabase (new structure)
+        await supabaseStorage.saveWorkout(workoutToSave, userId);
 
-      set((state) => ({
-        workouts: state.workouts.map((w) => (w.id === id ? updatedWorkout : w)),
-        isLoading: false,
-      }));
+        // Convert to old Workout format for cache and state (backward compatibility)
+        const updatedWorkout: Workout = {
+          ...existingWorkout,
+          title: extraction.title,
+          description: extraction.description,
+          name: extraction.title || existingWorkout.name || 'Workout',
+          date: extraction.date || existingWorkout.date,
+          rawText: [], // Will be generated from structured data
+          privacy: extraction.privacy || existingWorkout.privacy || 'public',
+          extractedData: {
+            type: 'unknown', // Not applicable in new structure
+            rounds: null,
+            movements: extraction.workout
+              .filter((el: any) => el.type === 'movement' && el.movement)
+              .map((el: any) => {
+                const m = el.movement;
+                return m.unit ? `${m.amount} ${m.exercise} ${m.unit}` : `${m.amount} ${m.exercise}`;
+              }),
+            times: extraction.score
+              .filter((s: any) => s.type === 'time' && s.metadata?.timeInSeconds)
+              .map((s: any) => s.metadata.timeInSeconds),
+            reps: extraction.score
+              .filter((s: any) => s.type === 'reps' && s.metadata?.totalReps)
+              .map((s: any) => s.metadata.totalReps),
+          },
+          imageUrl: extraction.imageUrl,
+          metadata: {
+            ...existingWorkout.metadata,
+            confidence: extraction.confidence,
+          },
+          workoutElements: extraction.workout,
+          scoreElements: extraction.score,
+        };
+
+        await workoutCache.saveWorkout(updatedWorkout);
+
+        set((state) => ({
+          workouts: state.workouts.map((w) => (w.id === id ? updatedWorkout : w)),
+          isLoading: false,
+        }));
+      } else {
+        // Old structure
+        const oldExtraction = extraction as OldWorkoutExtraction & { imageUrl: string };
+        const generateDefaultName = (): string => {
+          if (oldExtraction.rawText && oldExtraction.rawText.length > 0 && oldExtraction.rawText[0].trim()) {
+            return oldExtraction.rawText[0].trim();
+          }
+          const rounds = oldExtraction.rounds || 0;
+          const type = oldExtraction.type === 'unknown' ? 'Workout' : oldExtraction.type.charAt(0).toUpperCase() + oldExtraction.type.slice(1);
+          return rounds > 0 ? `${rounds}-${type} Workout` : `${type} Workout`;
+        };
+
+        const updatedWorkout: Workout = {
+          ...existingWorkout,
+          name: oldExtraction.name?.trim() || generateDefaultName(),
+          date: oldExtraction.date || existingWorkout.date,
+          rawText: oldExtraction.rawText,
+          privacy: oldExtraction.privacy || 'public',
+          extractedData: {
+            type: oldExtraction.type,
+            rounds: oldExtraction.rounds,
+            movements: oldExtraction.movements,
+            times: oldExtraction.times,
+            reps: oldExtraction.reps,
+          },
+          imageUrl: oldExtraction.imageUrl,
+          metadata: {
+            ...existingWorkout.metadata,
+            confidence: oldExtraction.confidence,
+          },
+        };
+
+        // Update in both Supabase and cache
+        await Promise.all([
+          supabaseStorage.saveWorkout(updatedWorkout, userId),
+          workoutCache.saveWorkout(updatedWorkout),
+        ]);
+
+        set((state) => ({
+          workouts: state.workouts.map((w) => (w.id === id ? updatedWorkout : w)),
+          isLoading: false,
+        }));
+      }
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : 'Failed to update workout',

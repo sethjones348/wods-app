@@ -125,8 +125,13 @@ export default function WorkoutDetailPage() {
                     <div className="flex justify-between items-start mb-6">
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl sm:text-3xl font-heading font-bold mb-2 break-words">
-                {workout.name || 'Workout'}
+                {workout.title || workout.name || 'Workout'}
               </h1>
+              {workout.description && (
+                <p className="text-gray-600 text-sm sm:text-base italic mb-2">
+                  {workout.description}
+                </p>
+              )}
               <p className="text-gray-600 text-sm sm:text-base">
                 {format(new Date(workout.date), 'MMMM d, yyyy')}
               </p>

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { Workout, WorkoutExtraction } from '../types';
+import { Workout, WorkoutExtraction, ScoreName } from '../types';
 import { workoutStore } from '../store/workoutStore';
 import WorkoutEditor from '../components/WorkoutEditor';
 import { Link } from 'react-router-dom';
@@ -83,18 +83,47 @@ export default function EditWorkoutPage() {
   }
 
   // Convert Workout to WorkoutExtraction format
-  const extraction: WorkoutExtraction = {
-    name: workout.name,
-    date: workout.date,
-    rawText: workout.rawText,
-    type: workout.extractedData.type,
-    rounds: workout.extractedData.rounds,
-    movements: workout.extractedData.movements,
-    times: workout.extractedData.times,
-    reps: workout.extractedData.reps,
-    confidence: workout.metadata.confidence || 1.0,
-    privacy: workout.privacy || 'public',
-  };
+  // Use new structure if available, otherwise convert from old structure
+  const extraction: WorkoutExtraction = workout.workoutElements && workout.scoreElements
+    ? {
+        title: workout.title || workout.name || 'Workout',
+        description: workout.description,
+        workout: workout.workoutElements,
+        score: workout.scoreElements,
+        date: workout.date,
+        confidence: workout.metadata.confidence || 1.0,
+        privacy: workout.privacy || 'public',
+      }
+    : {
+        // Convert from old structure to new structure
+        title: workout.title || workout.name || 'Workout',
+        description: workout.description,
+        workout: workout.extractedData.movements.map((movement) => ({
+          type: 'movement' as const,
+          movement: {
+            amount: '1',
+            exercise: movement,
+            unit: null,
+          },
+        })),
+        score: [
+          ...(workout.extractedData.times || []).map((time, index): { name: ScoreName; type: 'time'; value: string; metadata: { timeInSeconds: number } } => ({
+            name: (index === 0 ? 'Finish Time' : `Round ${index + 1}`) as ScoreName,
+            type: 'time' as const,
+            value: `${Math.floor(time / 60)}:${String(time % 60).padStart(2, '0')}`,
+            metadata: { timeInSeconds: time },
+          })),
+          ...(workout.extractedData.reps || []).map((rep, index): { name: ScoreName; type: 'reps'; value: string; metadata: { totalReps: number } } => ({
+            name: `Round ${index + 1}` as ScoreName,
+            type: 'reps' as const,
+            value: String(rep),
+            metadata: { totalReps: rep },
+          })),
+        ],
+        date: workout.date,
+        confidence: workout.metadata.confidence || 1.0,
+        privacy: workout.privacy || 'public',
+      };
 
   return (
     <div className="min-h-screen md:pt-20 md:pb-12">

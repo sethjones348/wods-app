@@ -1,0 +1,104 @@
+You are analyzing a photo of a whiteboard with a workout written on it.
+
+Your task is to:
+1. Extract ALL text lines exactly as written (this is required)
+2. Attempt to extract structured workout data (this is optional, do your best)
+
+
+Whiteboard Structure
+- top line: will be a short descriptive of the workout and may indicate workout type or be blank. If blank the type of workout and descriptive name should be guessed based on the workout. 
+- workout: typical format will include a collection of movements and may include rest between movements or between rounds. each movement will have a dedicated line with three fields in this order; amount | exercise | units. amount is typically number of reps but could be distance or cals or time. In a pyramid or ladder style workout the number of reps increases each round e.g. 2-4-6-8... or 10-20-30-20-10 these are typically separated by dashes. Movement consists of conventional functional fitness movements or exercises. Units describe the weight, height, or qualifying descriptor of the movement. Units may be left blank if not necessary. 
+- results: underneath or to the side. Could be time or reps based on workout type. It could bCould be total time or time per round. if there is rest between rounds the start and end time for each round may be written. For rep based workouts results may be written as total reps or reps per round or number of rounds + number of reps into the following round. 
+- athletes will always record time in MM:SS but may omit ':'
+
+
+Workout Types:
+- "Rounds for Time" : number of rounds is noted above movements. If there is rest after each round, time is often noted per round. If there is no rest between rounds time is typically listed cumulatively as a total. Workouts may consist of multiple 'sets' where each set is a collection of rounds e.g. '2 sets, 3 rds ...' where the total time for each set is written below the workout description. There may be a time cap listed, if so number of reps at the time cap may be listed instead of time. Each set could be an entirely different collection of movements, reps, and rounds.
+- "Chipper": athlete progresses through each movement and records finish time or number of reps at the time cap for results. 
+- "AMRAP": athlete progresses through the movements and starts over when finished. Total number of reps is recorded for results. If there is rest between rounds or sets, reps for each round or set may be listed as results. 
+- "EMOM": athlete completes the prescribed movements at a set period. The period may be contained in the name e.g. E5MOM which iterates every 5 minutes or outside the name e.g. '5 min EMOM'. the start of every 'x' minutes. If blank then assume 1 minute. Different movements for each minute may be indicated. Results may include finish time for each ExMOM round or time may not be listed. Results may indicate number of rounds completed before failure. Results may include number of reps acheived during each round. 
+- "Lift": amount field will be formatted in 'sets'x'reps' e.g. 5x5 indicated 5 sets of 5 reps. Results may be weight for each set. 
+- For all workout types time is typically noted in MM:SS format
+- "For Time" : when a final time is listed as a result but the workout format does not follow a clear structure as defined above 
+- "For Reps" : when a final rep count is listed but the workout format does not follow a clear structure as defined above
+- "Unknown" : workout and results do not follow a workout format described above. 
+
+Extraction Guidelines:
+- Always extract raw text lines (preserve original formatting)
+- Identify workout type if clear
+
+- Extract workout information including amount, exersize, and units for each movement
+- Extract results according to workout type. Convert MM:SS to seconds if time-based
+- Create workout title based on workout type and abbreviated movements
+
+
+
+Output Requirements:
+- Return ONLY valid JSON (no markdown, no code blocks, no explanations)
+- rawText is REQUIRED (always return all text lines)
+- Other fields are optional - use null if unknown
+- Times in seconds (e.g., "12:34" = 754)
+- Movements normalized (capitalize, clean spacing)
+- Confidence: 0-1 score of extraction certainty
+
+JSON Schema:
+{
+  "rawText": ["line 1", "line 2", ...],  // REQUIRED - all text lines
+  "type": "time" | "reps" | "unknown",
+  "rounds": number | null,
+  "movements": ["Movement 1", ...] | [],
+  "times": [number, ...] | null,  // seconds
+  "reps": [number, ...] | null,
+  "confidence": number  // 0-1
+}
+
+Analyze the image and return the JSON.`;
+This prompt correctly analyzed pretty much all of my workouts and even the complex ones
+I was thinking what could really make the data analysis super consistent as if we had a list of predefined movement types and had the prompt match to one of the existing movement types and we can include “other” as one of those
+And in the workout edit, we would make that a drop-down
+Gemini had zero issue identifying movements
+So go check out your profile and maybe you’ll see what I mean
+I added an analysis section
+I see what you mean, that could be handled by Gemini in the prompt of it always infers the movement and return the same name regardless of what is written on the whiteboard
+
+
+
+That would also make the searching more effective 
+And we could implement filtering 
+What changed in the json schema?
+Nothing 
+Okay so looking at the current workout extraction… 
+Movement section should be renamed to workout
+- title listed at the top of workout
+- workout section will consist of elements which roughly correspond to each line of the whiteboard workout
+- elements will consist of movements
+- there may be elements that are descriptive only, e.g . “Rest 1:1” or “repeat”
+- movements consist of three fields; amount, exercise, and unit.
+- the workout should be rebuilt and displayed to the user using extracted information where the user can confirm or edit.
+- define json schema that captures title and workout elements
+Time and reps sections removed and replaced with “Score”
+- score section will consist of varying number of elements corresponding to rounds or finish time within a workout.
+- each element will have fields including name, type and value
+- all information will come from json, define appropriate schema
+- user will confirm or edit all information displayed in the score section 
+Raw text does not need to be displayed, this should actually be generated from the workout and score elements 
+Like if you trust the extraction enough you don’t need this?
+Correct, if you can rebuild the workout and results an confirm it then the raw text is redundant 
+No the goal should really be to recreate what is on the whiteboard which will typically  have a workout section and score section seperate
+Yes, a workout consists of a series of movements and descriptive elements so it doesn’t make sense to have a section named movements
+It would be helpful to have a mock up of what you are envisioning 
+Even if it’s just a scrap paper with a bad drawing 
+Or I could give my best guess of what you are saying and we could grow from their 
+Or a voice memo describing what it would look like would probably suffice too 
+I’ll sketch something
+
+
+
+Decided it made sense to default to past 30 days here 
+We can really let the imagination go though. We will have the data 
+So we can display it or derive as many stats as we want. Kinda fun 
+Yeah those are good, 90 days would be good as well
+
+
+
+So when you say unit you are less meaning “unit of measurement” and more meaning “how many or how much”

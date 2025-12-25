@@ -13,7 +13,7 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
       <Link to={`/workout/${workout.id}`} className="block">
         <div className="flex justify-between items-start mb-4 gap-2">
           <h3 className="text-lg sm:text-xl font-heading font-bold text-black flex-1 min-w-0">
-            <span className="truncate block">{workout.name || 'Workout'}</span>
+            <span className="truncate block">{workout.title || workout.name || 'Workout'}</span>
           </h3>
           <span className="text-xs sm:text-sm text-gray-600 uppercase tracking-wider flex-shrink-0">
             {format(new Date(workout.date), 'MMM d')}
@@ -33,6 +33,13 @@ export default function WorkoutCard({ workout }: WorkoutCardProps) {
           )}
         </div>
 
+        {workout.description && (
+          <div className="mb-3">
+            <p className="text-sm text-gray-600 italic line-clamp-2">
+              {workout.description}
+            </p>
+          </div>
+        )}
         {workout.extractedData.movements.length > 0 && (
           <div className="mb-4">
             <p className="text-sm text-gray-600 line-clamp-2">

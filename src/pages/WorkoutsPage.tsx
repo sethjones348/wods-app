@@ -71,6 +71,12 @@ export default function WorkoutsPage() {
 
     const query = searchQuery.toLowerCase();
     const filtered = workoutsToDisplay.filter((workout) => {
+      // Search in workout title/name
+      const titleMatch = (workout.title || workout.name || '').toLowerCase().includes(query);
+      
+      // Search in description (new structure)
+      const descriptionMatch = workout.description?.toLowerCase().includes(query) || false;
+      
       // Search in movements
       const movementsMatch = workout.extractedData.movements.some((movement) =>
         movement.toLowerCase().includes(query)
@@ -81,7 +87,7 @@ export default function WorkoutsPage() {
         line.toLowerCase().includes(query)
       );
 
-      return movementsMatch || rawTextMatch;
+      return titleMatch || descriptionMatch || movementsMatch || rawTextMatch;
     });
 
     setFilteredWorkouts(filtered);

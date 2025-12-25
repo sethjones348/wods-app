@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { WorkoutExtraction } from '../types';
-import { pluralizeMovements } from '../utils/movementUtils';
+import { WorkoutExtraction, WorkoutElement, ScoreElement } from '../types';
+import { normalizeMovementName } from '../utils/movementNormalizer';
+import { validateScoreElement } from '../utils/scoreValidator';
+import { autoCorrectRoundTime } from '../utils/timeUtils';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
@@ -13,46 +15,147 @@ const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
 const EXTRACTION_PROMPT = `You are analyzing a photo of a whiteboard with a workout written on it.
 
 Your task is to:
-1. Extract ALL text lines exactly as written (this is required)
-2. Attempt to extract structured workout data (this is optional, do your best)
+1. Extract the workout title (top line or inferred from workout)
+2. Extract workout elements (movements and descriptive elements)
+3. Extract score/results elements
+
+Whiteboard Structure:
+- Top line: Will be a short descriptive of the workout and may indicate workout type or be blank. If blank, the type of workout and descriptive name should be guessed based on the workout.
+- Workout section: Typical format will include a collection of movements and may include rest between movements or between rounds. Each movement will have a dedicated line with three fields in this order: amount | exercise | units. Amount is typically number of reps but could be distance or cals or time. In a pyramid or ladder style workout the number of reps increases each round e.g. 2-4-6-8... or 10-20-30-20-10 these are typically separated by dashes. Movement consists of conventional functional fitness movements or exercises. Units describe the weight, height, or qualifying descriptor of the movement. Units may be left blank if not necessary.
+- Score section: Underneath or to the side. Could be time or reps based on workout type. Could be total time or time per round. If there is rest between rounds the start and end time for each round may be written. For rep based workouts results may be written as total reps or reps per round or number of rounds + number of reps into the following round.
+- Athletes will always record time in MM:SS but may omit ':'
 
 Workout Types:
-- "time": Has time measurements (e.g., "Time: 12:34", "For time", round times)
-- "reps": Has rep counts or "For reps"
-- "unknown": Cannot determine
+- "Rounds for Time": Number of rounds is noted above movements. If there is rest after each round, time is often noted per round. If there is no rest between rounds time is typically listed cumulatively as a total. Workouts may consist of multiple 'sets' where each set is a collection of rounds e.g. '2 sets, 3 rds ...' where the total time for each set is written below the workout description. There may be a time cap listed, if so number of reps at the time cap may be listed instead of time. Each set could be an entirely different collection of movements, reps, and rounds.
+- "Chipper": Athlete progresses through each movement and records finish time or number of reps at the time cap for results.
+- "AMRAP": Athlete progresses through the movements and starts over when finished. Total number of reps is recorded for results. If there is rest between rounds or sets, reps for each round or set may be listed as results.
+- "EMOM": Athlete completes the prescribed movements at a set period. The period may be contained in the name e.g. E5MOM which iterates every 5 minutes or outside the name e.g. '5 min EMOM'. The start of every 'x' minutes. If blank then assume 1 minute. Different movements for each minute may be indicated. Results may include finish time for each ExMOM round or time may not be listed. Results may indicate number of rounds completed before failure. Results may include number of reps achieved during each round.
+- "Lift": Amount field will be formatted in 'sets'x'reps' e.g. 5x5 indicated 5 sets of 5 reps. Results may be weight for each set.
+- For all workout types time is typically noted in MM:SS format
+- "For Time": When a final time is listed as a result but the workout format does not follow a clear structure as defined above
+- "For Reps": When a final rep count is listed but the workout format does not follow a clear structure as defined above
+- "Unknown": Workout and results do not follow a workout format described above.
 
 Extraction Guidelines:
-- Always extract raw text lines (preserve original formatting)
-- Identify workout type if clear
-- Extract rounds if specified ("X Rounds", "Round X", etc.)
-- Extract movements/exercises (common CrossFit movements)
-- Extract times (convert MM:SS to seconds) if time-based
-- Extract rep counts if reps-based
-- Be flexible - workouts can be formatted many ways
-- If uncertain about structured data, set type to "unknown" and include what you can
+- Identify workout type if clear (for context during extraction)
+- Extract workout information including amount, exercise, and units for each movement
+- Extract rest durations in seconds for descriptive rest elements (e.g., "Rest 3:00" = duration: 180, "Rest 1:1" = duration: 60)
+- Extract results according to workout type. Convert MM:SS to seconds in metadata if time-based
+- CRITICAL TIME PARSING: 
+  * Always interpret times as MM:SS format when a colon is present. "1:13" = 73 seconds (1 minute 13 seconds), NOT 113 seconds.
+  * If a number appears without a colon in a time context:
+    - If less than 60, it's likely seconds (e.g., "45" = 45 seconds)
+    - If 60 or greater, ALWAYS assume the athlete omitted the colon and interpret as MM:SS format (e.g., "113" = "1:13" = 73 seconds, NOT 113 seconds)
+    - This is the standard format athletes use - they often omit the colon when writing times
+- For AMRAP workouts: 
+  * Calculate totalReps from rounds + reps (rounds * reps per round + reps into next round)
+  * Example: "8 rounds + 25 reps" with 30+10 reps per round = (30+10)*8 + 25 = 345 total reps
+- For rounds with rest: 
+  * Athletes often write start time, stop time, and sometimes also calculate and write the round time (the difference)
+  * If start/stop times are listed (e.g., "Start: 0:00, Stop: 1:13"), these represent the round time window, NOT separate athlete times
+  * Extract as startTime (MM:SS) and stopTime (MM:SS) in metadata
+  * Calculate roundTime = stopTime - startTime in seconds
+  * If a round time is also written separately, verify the math matches your calculation (roundTime should equal stopTime - startTime)
+  * If there are multiple times listed for a round, identify which are start/stop times vs the calculated round time
+  * The calculated round time is typically the smallest value (the difference), while start/stop times show the progression
+- For time cap scenarios: 
+  * If time cap is hit in a time-based workout, the score should be type "reps" (NOT "rounds")
+  * Calculate totalReps from rounds + reps into next round
+- Create workout title based on workout type and abbreviated movements
+- Generate an encouraging, short description (1-2 sentences) that makes people feel good about completing the workout
+  * Examples: "A challenging AMRAP that tests your endurance!", "A fast-paced workout that builds power and speed!", "A strength-focused session that will push your limits!"
+- Note: Raw text will be generated from the structured workout and score elements, so it does not need to be extracted
+
+Workout Elements:
+- Movement elements have:
+  - amount: Number of reps, sets×reps (e.g., "5x5"), or rep scheme (e.g., "21-15-9", "2-4-6-8")
+  - exercise: Movement name (normalize to standard names, capitalize, clean spacing)
+  - unit: Weight, distance, calories, or null (e.g., "135", "lbs", "cal")
+- Descriptive elements have:
+  - text: The descriptive text as written (e.g., "Rest 3:00", "repeat", "Rest 1:1")
+  - type: "rest", "repeat", "instruction", or null
+  - duration: Rest duration in seconds (e.g., "Rest 3:00" = 180, "Rest 1:1" = 60) - IMPORTANT for analysis
+
+Score Elements:
+- Each score element has:
+  - name: Must be one of these enum values:
+    * "Set 1", "Set 2", "Set 3", "Set 4", "Set 5" (for multi-set workouts)
+    * "Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Round 6", "Round 7", "Round 8", "Round 9", "Round 10" (for round-based workouts)
+    * "Finish Time" (for single finish time)
+    * "Total" (for total/aggregate scores like AMRAP totals)
+    * "Time Cap" (when time cap is hit)
+    * "Weight" (for weight-based scores without specific set/round)
+    * "Other" (for any other score type not covered above)
+  - type: "time", "reps", "weight", or "other" (NOTE: "rounds" is NOT a valid type - use "reps" with metadata)
+  - value: The score value as written (preserve format, e.g., "4:06", "3 rounds + 15 reps", "315")
+  - metadata: Additional parsed data:
+    - timeInSeconds: Convert MM:SS to seconds for time-based scores (CRITICAL: "1:13" = 73 seconds, NOT 113 seconds. Always interpret as MM:SS format, not raw seconds)
+    - totalReps: Total reps calculated (for AMRAP: rounds * reps per round + reps into next round)
+    - rounds: Number of rounds completed
+    - repsIntoNextRound: Reps into the next round (for AMRAP, etc.)
+    - weight: Weight value (for lifts)
+    - unit: Weight unit (e.g., "lbs", "kg")
+    - startTime: Start time of round in MM:SS format (for rounds with rest)
+    - stopTime: Stop time of round in MM:SS format (for rounds with rest)
+    - roundTime: Time for this specific round in seconds (for rounds with rest)
+  
+IMPORTANT SCORE RULES:
+- For AMRAP workouts: Convert "rounds + reps" to totalReps in metadata (e.g., "8 rounds + 25 reps" = totalReps: 8*roundReps + 25)
+- For time-based workouts with time cap: If time cap is hit, score type should be "reps" (not "rounds"), with totalReps calculated. Use name "Time Cap" if the time cap was hit.
+- For rounds with rest: If start and stop times are listed (e.g., "Start: 0:00, Stop: 4:06"), these represent the round time window, not separate athlete times. Use startTime and stopTime in metadata, and calculate roundTime.
+- Use "Round X" for individual round scores, "Set X" for set-based workouts, "Finish Time" for single completion time, "Total" for aggregate scores.
 
 Output Requirements:
 - Return ONLY valid JSON (no markdown, no code blocks, no explanations)
-- rawText is REQUIRED (always return all text lines)
-- Other fields are optional - use null if unknown
-- Times in seconds (e.g., "12:34" = 754)
-- Movements normalized (capitalize, clean spacing)
+- All fields are optional except title (use empty string if unknown)
+- Times in metadata should be converted to seconds (CRITICAL: "1:13" = 73 seconds, NOT 113 seconds)
+- Movements should be normalized (capitalize, clean spacing)
+- Generate an encouraging description (1-2 sentences) that makes people feel good about the workout
 - Confidence: 0-1 score of extraction certainty
 
 JSON Schema:
 {
-  "rawText": ["line 1", "line 2", ...],  // REQUIRED - all text lines
-  "type": "time" | "reps" | "unknown",
-  "rounds": number | null,
-  "movements": ["Movement 1", ...] | [],
-  "times": [number, ...] | null,  // seconds
-  "reps": [number, ...] | null,
-  "confidence": number  // 0-1
+  "title": string,
+  "description"?: string,
+  "workout": [
+    {
+      "type": "movement" | "descriptive",
+      "movement": {
+        "amount": string | number,
+        "exercise": string,
+        "unit": string | null
+      } | null,
+      "descriptive": {
+        "text": string,
+        "type": string | null,
+        "duration"?: number
+      } | null
+    }
+  ],
+  "score": [
+    {
+      "name": "Set 1" | "Set 2" | "Set 3" | "Set 4" | "Set 5" | "Round 1" | "Round 2" | "Round 3" | "Round 4" | "Round 5" | "Round 6" | "Round 7" | "Round 8" | "Round 9" | "Round 10" | "Finish Time" | "Total" | "Time Cap" | "Weight" | "Other",
+      "type": "time" | "reps" | "weight" | "other",
+      "value": string | number,
+      "metadata": {
+        "timeInSeconds"?: number,
+        "totalReps"?: number,
+        "rounds"?: number,
+        "repsIntoNextRound"?: number,
+        "weight"?: number,
+        "unit"?: string,
+        "startTime"?: string,
+        "stopTime"?: string,
+        "roundTime"?: number
+      } | null
+    }
+  ],
+  "confidence": number
 }
 
 Analyze the image and return the JSON.`;
 
-function parseGeminiResponse(response: string): WorkoutExtraction {
+function parseGeminiResponse(response: string): any {
     // Remove markdown code blocks if present
     let jsonText = response.trim();
     jsonText = jsonText.replace(/^```json\s*/i, '');
@@ -66,6 +169,72 @@ function parseGeminiResponse(response: string): WorkoutExtraction {
     }
 
     return JSON.parse(jsonMatch[0]);
+}
+
+/**
+ * Normalize and validate workout extraction
+ */
+function normalizeExtraction(rawExtraction: any): WorkoutExtraction {
+    // Normalize workout elements
+    const normalizedWorkout: WorkoutElement[] = (rawExtraction.workout || []).map((el: any) => {
+        if (el.type === 'movement' && el.movement) {
+            // Normalize movement name
+            const normalized = normalizeMovementName(el.movement.exercise || '');
+            return {
+                type: 'movement' as const,
+                movement: {
+                    amount: el.movement.amount ?? '',
+                    exercise: normalized.normalized || el.movement.exercise || '',
+                    unit: el.movement.unit || null,
+                },
+            };
+        } else if (el.type === 'descriptive' && el.descriptive) {
+            return {
+                type: 'descriptive' as const,
+                descriptive: {
+                    text: el.descriptive.text || '',
+                    type: el.descriptive.type || null,
+                    duration: el.descriptive.duration,
+                },
+            };
+        }
+        return el;
+    });
+
+    // Normalize and validate score elements
+    const normalizedScore: ScoreElement[] = (rawExtraction.score || []).map((score: any) => {
+        // Auto-correct round time if start/stop times are present
+        let roundTime = score.metadata?.roundTime;
+        if (score.metadata?.startTime && score.metadata?.stopTime) {
+            roundTime = autoCorrectRoundTime(
+                score.metadata.startTime,
+                score.metadata.stopTime,
+                score.metadata.roundTime
+            );
+        }
+
+        return {
+            name: score.name || 'Other',
+            type: score.type || 'other',
+            value: score.value ?? '',
+            metadata: score.metadata
+                ? {
+                      ...score.metadata,
+                      roundTime,
+                  }
+                : null,
+        };
+    });
+
+    return {
+        title: rawExtraction.title || '',
+        description: rawExtraction.description,
+        workout: normalizedWorkout,
+        score: normalizedScore,
+        date: rawExtraction.date,
+        confidence: rawExtraction.confidence ?? 0.5,
+        privacy: rawExtraction.privacy || 'public',
+    };
 }
 
 // Helper function to list available models (for debugging)
@@ -170,30 +339,25 @@ export const workoutExtractor = {
                     const response = result.response;
                     const text = response.text();
 
-                    const extraction = parseGeminiResponse(text);
+                    const rawExtraction = parseGeminiResponse(text);
 
-                    // Validate and set defaults
-                    if (!extraction.rawText || !Array.isArray(extraction.rawText)) {
-                        throw new Error('Invalid response: rawText missing');
+                    // Validate required fields
+                    if (!rawExtraction.title && !rawExtraction.workout) {
+                        throw new Error('Invalid response: title or workout missing');
                     }
 
-                    if (extraction.rawText.length === 0) {
-                        extraction.rawText = ['[No text detected]'];
-                    }
+                    // Normalize and validate extraction
+                    const extraction = normalizeExtraction(rawExtraction);
 
-                    // Pluralize movements that start with numbers
-                    const movements = extraction.movements || [];
-                    const pluralizedMovements = pluralizeMovements(movements);
+                    // Validate score elements
+                    extraction.score.forEach((score, index) => {
+                        const validation = validateScoreElement(score);
+                        if (!validation.isValid) {
+                            console.warn(`Score element ${index} validation warnings:`, validation.warnings);
+                        }
+                    });
 
-                    return {
-                        rawText: extraction.rawText,
-                        type: extraction.type || 'unknown',
-                        rounds: extraction.rounds ?? null,
-                        movements: pluralizedMovements,
-                        times: extraction.times ?? null,
-                        reps: extraction.reps ?? null,
-                        confidence: extraction.confidence ?? 0.5,
-                    };
+                    return extraction;
                 } catch (err) {
                     const error = err instanceof Error ? err : new Error(String(err));
                     lastError = error;
@@ -235,13 +399,11 @@ export const workoutExtractor = {
             console.error('Extraction error:', error);
             // Fallback: return minimal extraction
             return {
-                rawText: ['[Extraction failed]'],
-                type: 'unknown',
-                rounds: null,
-                movements: [],
-                times: null,
-                reps: null,
+                title: 'Workout',
+                workout: [],
+                score: [],
                 confidence: 0,
+                privacy: 'public',
             };
         }
     },

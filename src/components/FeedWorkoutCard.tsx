@@ -91,8 +91,17 @@ export default function FeedWorkoutCard({ workout, user }: FeedWorkoutCardProps)
       <div className="px-4 py-4">
         <Link to={`/workout/${workout.id}`} className="block">
           <h3 className="text-xl font-heading font-bold text-black mb-2 hover:text-cf-red transition-colors">
-            {workout.name || 'Workout'}
+            {workout.title || workout.name || 'Workout'}
           </h3>
+
+          {/* Description - if available (new structure) */}
+          {workout.description && (
+            <div className="mb-3">
+              <p className="text-sm text-gray-600 italic">
+                {workout.description}
+              </p>
+            </div>
+          )}
 
           {/* Workout Stats - Strava style badges */}
           <div className="flex flex-wrap gap-2 mb-3">
