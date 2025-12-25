@@ -64,8 +64,11 @@ Extraction Guidelines:
 - Create workout title based on workout type and abbreviated movements
 - Generate a casual, enthusiastic one-liner description in "gym bro" style - short, hype, and motivating
   * Tone: Casual, enthusiastic, slightly aggressive, uses gym slang
-  * Style: One sentence max, sounds like what someone would say after crushing a workout
-  * Examples: "Brutal AMRAP that'll gas you!", "Savage chipper that tests everything!", "Heavy grind session for the beasts!", "Fast and nasty - prepare to suffer!", "Pure strength work, leave your ego at the door!"
+  * Style: One sentence max, from the system's perspective describing how the person performed in the workout - observational, describing performance characteristics
+  * Format: Like "An E5MOM with high output in [movements/areas]." or "A [workout type] that tested [specific areas]." - describing performance/characteristics, not first-person experience
+  * CRITICAL: Must reference specific movements, workout type, or workout characteristics from the actual workout
+  * Examples: "An E5MOM with high output in cleans and burpees.", "A savage chipper that tested everything from wall balls to double unders.", "Heavy deadlift session with solid volume.", "Fast and nasty with double unders and box jumps - high intensity throughout.", "Brutal AMRAP with thrusters and pull-ups that pushed the limits."
+  * AVOID: First-person language like "crushed me" or "had me gassed", or explanatory language like "combines X, Y, and Z to build fitness" - focus on observational description of performance/characteristics with specific workout elements
 - Note: Raw text will be generated from the structured workout and score elements, so it does not need to be extracted
 
 Workout Elements:
@@ -113,12 +116,15 @@ Output Requirements:
 - Times in metadata should be converted to seconds (CRITICAL: "1:13" = 73 seconds, NOT 113 seconds)
 - Movements should be normalized (capitalize, clean spacing)
 - Generate a casual, enthusiastic one-liner description in "gym bro" style - short, hype, and motivating (one sentence max)
+  * Should be from the system's perspective describing how the person performed in the workout - observational, describing performance characteristics
+  * Format: "An [workout type] with [performance characteristics]." or "A [workout type] that [describes performance]." - NOT first-person or explanatory language
+  * CRITICAL: Must reference specific movements, workout type, or workout characteristics from the actual workout
 - Confidence: 0-1 score of extraction certainty
 
 JSON Schema:
 {
   "title": string,
-  "description"?: string,  // Casual, enthusiastic one-liner in "gym bro" style (one sentence max, e.g., "Brutal AMRAP that'll gas you!", "Savage chipper that tests everything!")
+  "description"?: string,  // Casual, enthusiastic one-liner in "gym bro" style from system's perspective describing performance, referencing specific movements/workout elements (one sentence max, e.g., "An E5MOM with high output in cleans and burpees.", "A savage chipper that tested everything from wall balls to double unders.")
   "workout": [
     {
       "type": "movement" | "descriptive",
