@@ -9,7 +9,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { config } from 'dotenv';
-import { workoutExtractorAlgorithmic, parseWorkoutFromRawText } from '../src/services/workoutExtractorAlgorithmic';
+import { workoutExtractorAlgorithmic } from '../src/services/workoutExtractorAlgorithmic';
 
 // Load environment variables
 config();
