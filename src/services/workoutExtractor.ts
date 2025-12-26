@@ -227,9 +227,9 @@ function normalizeExtraction(rawExtraction: any): WorkoutExtraction {
             value: score.value ?? '',
             metadata: score.metadata
                 ? {
-                      ...score.metadata,
-                      roundTime,
-                  }
+                    ...score.metadata,
+                    roundTime,
+                }
                 : null,
         };
     });

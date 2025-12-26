@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import ImageUpload from '../components/ImageUpload';
 import WorkoutEditor from '../components/WorkoutEditor';
 import { WorkoutExtraction } from '../types';
-import { workoutExtractor } from '../services/workoutExtractor';
+import { workoutExtractor } from '../services/workoutExtractorWrapper';
 import { workoutStore } from '../store/workoutStore';
 import { compressImage } from '../utils/imageCompression';
 

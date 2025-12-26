@@ -263,7 +263,8 @@ export function normalizeMovementName(original: string): {
     return { normalized: '', original: original || '' };
   }
 
-  const trimmed = original.trim();
+  // Strip trailing punctuation (colons, periods, etc.) before normalization
+  const trimmed = original.trim().replace(/[:;.,!?]+$/, '');
   const lower = trimmed.toLowerCase();
 
   // Check if we have a mapping
