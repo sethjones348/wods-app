@@ -10,7 +10,7 @@ import SearchBar from '../components/SearchBar';
 
 export default function WorkoutsPage() {
   const { userId: paramUserId } = useParams<{ userId?: string }>();
-  const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { workouts, loadWorkouts, isLoading, error } = workoutStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredWorkouts, setFilteredWorkouts] = useState<Workout[]>([]);
@@ -24,7 +24,7 @@ export default function WorkoutsPage() {
   const isViewingOwnWorkouts = !paramUserId || paramUserId === user?.id;
 
   useEffect(() => {
-    if (isAuthLoading || !isAuthenticated) return;
+    if (!isAuthenticated) return;
     
     if (isViewingOwnWorkouts && user?.id) {
       // Load own workouts using the store
@@ -92,18 +92,6 @@ export default function WorkoutsPage() {
 
     setFilteredWorkouts(filtered);
   }, [searchQuery, workoutsToDisplay]);
-
-  // Show loading state while auth is loading to prevent flickering
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center pt-20 px-4">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cf-red mb-4"></div>
-          <p className="text-lg text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!isAuthenticated) {
     return (

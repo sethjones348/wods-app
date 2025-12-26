@@ -34,6 +34,8 @@ const MOVEMENT_ALIASES: Record<string, string[]> = {
     'b. o. b.',
     'burpee',
     'burpeeoverbar',
+    'burpee over db',
+    'burpee over dumbbell',
   ],
   'Wall Ball': [
     'wall ball',
@@ -49,6 +51,14 @@ const MOVEMENT_ALIASES: Record<string, string[]> = {
     'pull-ups',
     'pullups',
     'pull ups',
+  ],
+  'Chest-to-Bar': [
+    'chest-to-bar',
+    'chest to bar',
+    'chesttobar',
+    'ctb',
+    'c.t.b.',
+    'c. t. b.',
   ],
   'Push-up': [
     'push-up',
@@ -103,6 +113,13 @@ const MOVEMENT_ALIASES: Record<string, string[]> = {
     'frontsquats',
     'fs',
   ],
+  'Lunge': [
+    'lunge',
+    'lunges',
+    'of lunge',
+    'walking lunge',
+    'walking lunges',
+  ],
   'Overhead Squat': [
     'overhead squat',
     'ohs',
@@ -122,6 +139,15 @@ const MOVEMENT_ALIASES: Record<string, string[]> = {
     'push jerk',
     'pj',
     'push jerks',
+  ],
+  'Shoulder To Overhead': [
+    'shoulder to overhead',
+    'shoulder-to-overhead',
+    'shouldertooverhead',
+    'sto',
+    's.t.o.',
+    's. t. o.',
+    'shoulder press to overhead',
   ],
   'Clean': [
     'clean',
@@ -261,6 +287,13 @@ const MOVEMENT_ALIASES: Record<string, string[]> = {
     'bike erg',
     'bikeerg',
     '200w bike erg',
+  ],
+  'Ski': [
+    'ski',
+    'skiing',
+    'ski erg',
+    'skierg',
+    'ski ergometer',
   ],
   'Run': [
     'run',

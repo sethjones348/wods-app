@@ -79,7 +79,7 @@ describe('workoutExtractorAlgorithmic', () => {
                             type: 'movement',
                             movement: {
                                 amount: '25',
-                                exercise: 'Ctb',
+                                exercise: 'Chest-to-Bar',
                                 unit: null,
                             },
                         },
@@ -138,7 +138,7 @@ describe('workoutExtractorAlgorithmic', () => {
                             type: 'movement',
                             movement: {
                                 amount: '25',
-                                exercise: 'Ctb',
+                                exercise: 'Chest-to-Bar',
                                 unit: null,
                             },
                         },
@@ -733,30 +733,6 @@ for time |
                                 text: '@ 8:00',
                                 type: 'instruction',
                                 duration: 480,
-                            },
-                        },
-                        {
-                            type: 'movement',
-                            movement: {
-                                amount: '13',
-                                exercise: '45',
-                                unit: null,
-                            },
-                        },
-                        {
-                            type: 'movement',
-                            movement: {
-                                amount: '1',
-                                exercise: 'For Time',
-                                unit: null,
-                            },
-                        },
-                        {
-                            type: 'movement',
-                            movement: {
-                                amount: '1',
-                                exercise: ') :54',
-                                unit: null,
                             },
                         },
                         {

@@ -1135,14 +1135,17 @@ function parseMovements(grid: GridData): WorkoutElement[] {
                     // Now validate the cleaned exercise name
                     const validated = validateAndNormalizeMovement(exerciseToValidate);
 
-                    elements.push({
-                        type: 'movement',
-                        movement: {
-                            amount: finalAmount,
-                            exercise: validated.normalized,
-                            unit: finalUnit || null,
-                        },
-                    });
+                    // Only add movements that are valid (matched to a standard movement)
+                    if (validated.isValid) {
+                        elements.push({
+                            type: 'movement',
+                            movement: {
+                                amount: finalAmount,
+                                exercise: validated.normalized,
+                                unit: finalUnit || null,
+                            },
+                        });
+                    }
                     continue;
                 }
             }
@@ -1196,15 +1199,18 @@ function parseMovements(grid: GridData): WorkoutElement[] {
 
                 const validated = validateAndNormalizeMovement(exerciseName);
 
-                elements.push({
-                    type: 'movement',
-                    movement: {
-                        amount: amount.trim(),
-                        exercise: validated.normalized,
-                        unit: unitValue,
-                    },
-                });
-                matched = true;
+                // Only add movements that are valid (matched to a standard movement)
+                if (validated.isValid) {
+                    elements.push({
+                        type: 'movement',
+                        movement: {
+                            amount: amount.trim(),
+                            exercise: validated.normalized,
+                            unit: unitValue,
+                        },
+                    });
+                    matched = true;
+                }
                 break;
             }
         }
@@ -1213,14 +1219,17 @@ function parseMovements(grid: GridData): WorkoutElement[] {
         if (!matched && trimmed.length > 3) {
             // Might be just an exercise name (rare, but handle it)
             const validated = validateAndNormalizeMovement(trimmed);
-            elements.push({
-                type: 'movement',
-                movement: {
-                    amount: '1',
-                    exercise: validated.normalized,
-                    unit: null,
-                },
-            });
+            // Only add movements that are valid (matched to a standard movement)
+            if (validated.isValid) {
+                elements.push({
+                    type: 'movement',
+                    movement: {
+                        amount: '1',
+                        exercise: validated.normalized,
+                        unit: null,
+                    },
+                });
+            }
         }
     }
 

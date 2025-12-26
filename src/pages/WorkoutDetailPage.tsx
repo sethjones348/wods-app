@@ -11,16 +11,13 @@ import CommentsSection from '../components/CommentsSection';
 export default function WorkoutDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { isAuthenticated, user, isLoading: isAuthLoading } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const { workouts, deleteWorkout } = workoutStore();
     const [workout, setWorkout] = useState<Workout | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isOwnWorkout, setIsOwnWorkout] = useState(false);
 
     useEffect(() => {
-        if (isAuthLoading) {
-            return;
-        }
         if (!id || !isAuthenticated) {
             setIsLoading(false);
             return;
@@ -61,7 +58,7 @@ export default function WorkoutDetailPage() {
         };
 
         loadWorkout();
-    }, [id, isAuthenticated, workouts, user?.id, isAuthLoading]);
+    }, [id, isAuthenticated, workouts, user?.id]);
 
     const handleDelete = async () => {
         if (!workout || !confirm('Are you sure you want to delete this workout?')) {
@@ -76,18 +73,6 @@ export default function WorkoutDetailPage() {
             alert('Failed to delete workout');
         }
     };
-
-    // Show loading state while auth is loading to prevent flickering
-    if (isAuthLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center pt-20 px-4">
-                <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cf-red mb-4"></div>
-                    <p className="text-lg text-gray-600">Loading...</p>
-                </div>
-            </div>
-        );
-    }
 
     if (!isAuthenticated) {
         return (

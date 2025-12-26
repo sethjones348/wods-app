@@ -12,7 +12,7 @@ import { normalizeMovementName } from '../utils/movementNormalizer';
 
 export default function ProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const { user: currentUser, isAuthenticated, refreshUser, isLoading: isAuthLoading } = useAuth();
+  const { user: currentUser, isAuthenticated, refreshUser } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -253,18 +253,6 @@ export default function ProfilePage() {
     delete newPrs[key];
     setEditForm({ ...editForm, prs: newPrs });
   };
-
-  // Show loading state while auth is loading to prevent flickering
-  if (isAuthLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center pt-20 px-4">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-cf-red mb-4"></div>
-          <p className="text-lg text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!isAuthenticated) {
     return (
