@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS score_elements (
     'Round 6', 'Round 7', 'Round 8', 'Round 9', 'Round 10',
     'Finish Time', 'Total', 'Time Cap', 'Weight', 'Other'
   )) NOT NULL,
-  score_type TEXT CHECK (score_type IN ('time', 'reps', 'weight', 'other')) NOT NULL,
+  score_type TEXT CHECK (score_type IN ('time', 'reps', 'weight', 'cals', 'watts', 'rpm', 'other')) NOT NULL,
   value TEXT NOT NULL,
   metadata JSONB,
   

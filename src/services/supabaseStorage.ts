@@ -141,7 +141,7 @@ async function saveWorkoutElements(workoutId: string, elements: WorkoutElement[]
                     workout_id: workoutId,
                     element_order: index,
                     element_type: 'movement',
-                    amount: String(el.movement.amount ?? ''),
+                    amount: el.movement.amount !== null && el.movement.amount !== undefined ? String(el.movement.amount) : null,
                     exercise: el.movement.exercise || '',
                     unit: el.movement.unit || null,
                     descriptive_text: null,

@@ -84,10 +84,21 @@ export function generateWorkoutSummary(extraction: WorkoutExtraction): string {
     .filter(el => el.type === 'movement' && el.movement)
     .map(el => {
       const { amount, exercise, unit } = el.movement!;
-      if (unit) {
-        return `${amount} ${exercise} ${unit}`;
+      const parts: string[] = [];
+      
+      if (amount !== null && amount !== undefined && amount !== '') {
+        parts.push(String(amount));
       }
-      return `${amount} ${exercise}`;
+      
+      if (exercise) {
+        parts.push(exercise);
+      }
+      
+      if (unit) {
+        parts.push(unit);
+      }
+      
+      return parts.join(' ');
     });
 
   return movements.join(' • ');

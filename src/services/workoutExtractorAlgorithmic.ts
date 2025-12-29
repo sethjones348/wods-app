@@ -197,7 +197,7 @@ Output only the extracted text with pipes added.`;
     // Default: Smart prompt with labels and inference
     return `Extract all visible text from this image. The image shows a crossfit workout of the day (WOD) or lift written on a whiteboard.
 
-For each line (or one additional line for AITITLE if applicable):
+For each line:
 - Prefix the line with one label: TITLE, MOVEMENT, INSTRUCTION, or SCORE.
 -Insert vertical pipes (|) between logical text groups; amount ( number, distance, time, watts, etc) | movement (common CrossFit exercises) | scale (weight, height, distance). 
 -Infer and insert missing or corrected information. Example: "3rvs" = "3 rounds" Example: lines with movement only may use amount from the line above. Example: line with amount only may be applied to lines below with movement only. Example: quotations = ditto of similar lines above.
@@ -205,7 +205,6 @@ For each line (or one additional line for AITITLE if applicable):
 
 Label definitions:
 - TITLE: workout name or main heading (as written on whiteboard)
-- AITITLE: improved, descriptive workout title (optional - only include if you can create a better title than what's written)
 - MOVEMENT: reps, exercises, weights, units
 - INSTRUCTION: notes, rest, repeat, cues, descriptive text
 - SCORE: times, rounds, + reps, dates, athlete scores
@@ -217,7 +216,7 @@ Rules:
 - No markdown
 - Plain text only
 
-Output nothing except the labeled, piped text.`;
+Output nothing except the labeled, piped text, and add one additional line at the end - AITITLE: <generate a WOD title for this workout>.`;
 }
 
 /**
@@ -2024,6 +2023,63 @@ function parseScores(grid: GridData, timeCap?: number, labels?: string[]): Score
 }
 
 /**
+ * Recalculate totalReps for score elements using workout movements context
+ * This improves accuracy of totalReps calculation for AMRAP/time cap scenarios
+ */
+function recalculateTotalReps(scores: ScoreElement[], movements: WorkoutElement[]): ScoreElement[] {
+    // Calculate reps per round from movements
+    let repsPerRound = 0;
+    for (const element of movements) {
+        if (element.type === 'movement' && element.movement) {
+            const amount = element.movement.amount;
+            if (amount !== null && amount !== undefined) {
+                // Parse amount - could be "21-15-9", "21", "5x5", etc.
+                const amountStr = String(amount);
+                // For simple numbers, use directly
+                if (/^\d+$/.test(amountStr)) {
+                    repsPerRound += parseInt(amountStr, 10);
+                } else if (amountStr.includes('-')) {
+                    // For "21-15-9" format, use first number (first round)
+                    const firstNum = amountStr.split('-')[0];
+                    if (/^\d+$/.test(firstNum)) {
+                        repsPerRound += parseInt(firstNum, 10);
+                    }
+                } else if (amountStr.includes('x')) {
+                    // For "5x5" format, multiply
+                    const parts = amountStr.split('x');
+                    if (parts.length === 2 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1])) {
+                        repsPerRound += parseInt(parts[0], 10) * parseInt(parts[1], 10);
+                    }
+                }
+            }
+        }
+    }
+
+    // If we couldn't calculate reps per round, return scores as-is
+    if (repsPerRound === 0) {
+        return scores;
+    }
+
+    // Recalculate totalReps for scores that have rounds and repsIntoNextRound
+    return scores.map(score => {
+        if (score.type === 'reps' && score.metadata?.rounds !== undefined && score.metadata?.repsIntoNextRound !== undefined) {
+            const rounds = score.metadata.rounds;
+            const repsIntoNext = score.metadata.repsIntoNextRound || 0;
+            const calculatedTotalReps = rounds * repsPerRound + repsIntoNext;
+
+            return {
+                ...score,
+                metadata: {
+                    ...score.metadata,
+                    totalReps: calculatedTotalReps,
+                },
+            };
+        }
+        return score;
+    });
+}
+
+/**
  * Detect workout type from title, movements, and scores
  */
 function detectWorkoutType(title: string, movements: WorkoutElement[], scores: ScoreElement[]): string {
@@ -2131,7 +2187,9 @@ export function parseWorkoutFromRawText(rawText: string): WorkoutExtraction {
     const titleData = parseTitle(grid, ocrData.labels);
     const title = titleData.title;
     const movements = parseMovements(grid, ocrData.labels);
-    const scores = parseScores(grid, titleData.timeCap, ocrData.labels);
+    let scores = parseScores(grid, titleData.timeCap, ocrData.labels);
+    // Recalculate totalReps with workout context for accurate AMRAP/time cap calculations
+    scores = recalculateTotalReps(scores, movements);
 
     // Step 4: Detect workout type
     const workoutType = detectWorkoutType(title, movements, scores);
@@ -2191,7 +2249,9 @@ function parseFromOCRData(ocrData: OCRData, rawGeminiText?: string): WorkoutExtr
     const titleData = parseTitle(grid, ocrData.labels);
     const title = titleData.title;
     const movements = parseMovements(grid, ocrData.labels);
-    const scores = parseScores(grid, titleData.timeCap, ocrData.labels);
+    let scores = parseScores(grid, titleData.timeCap, ocrData.labels);
+    // Recalculate totalReps with workout context for accurate AMRAP/time cap calculations
+    scores = recalculateTotalReps(scores, movements);
     const parsingMode = hasLabels ? 'label-based' : 'classification-based';
     console.log(`  [Parsing] Parsed: title="${title}", ${movements.length} movements, ${scores.length} scores (${parsingMode}, ${((Date.now() - parseStartTime) / 1000).toFixed(3)}s)`);
 

@@ -100,7 +100,7 @@ export default function WorkoutEditor({
     newWorkout[index] = {
       type: 'movement',
       movement: {
-        amount: amount.trim() || 0,
+        amount: amount.trim() || null,
         exercise: validated.normalized,
         unit: unit?.trim() || null,
       },
@@ -139,7 +139,7 @@ export default function WorkoutEditor({
     });
   };
 
-  const handleUpdateScore = (index: number, name: ScoreName, type: 'time' | 'reps' | 'weight' | 'other', value: string) => {
+  const handleUpdateScore = (index: number, name: ScoreName, type: 'time' | 'reps' | 'weight' | 'cals' | 'watts' | 'rpm' | 'other', value: string) => {
     if (value.trim()) {
       const metadata: any = {};
 
@@ -365,9 +365,9 @@ export default function WorkoutEditor({
                   <div className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-3 gap-2">
                     <input
                       type="text"
-                      value={String(element.movement.amount || '')}
+                      value={element.movement.amount !== null && element.movement.amount !== undefined ? String(element.movement.amount) : ''}
                       onChange={(e) => handleUpdateMovement(index, e.target.value, element.movement!.exercise, element.movement!.unit || null)}
-                      placeholder="Amount"
+                      placeholder="Amount (optional)"
                       className="w-full px-2 py-1 border border-gray-300 rounded focus:border-cf-red outline-none text-sm min-h-[44px]"
                     />
                     <select
@@ -457,7 +457,7 @@ export default function WorkoutEditor({
                         const newElement: WorkoutElement = {
                           type: 'movement',
                           movement: {
-                            amount: '1',
+                            amount: null,
                             exercise: '',
                             unit: null,
                           },
@@ -530,6 +530,9 @@ export default function WorkoutEditor({
                     <option value="time">Time</option>
                     <option value="reps">Reps</option>
                     <option value="weight">Weight</option>
+                    <option value="cals">Cals</option>
+                    <option value="watts">Watts</option>
+                    <option value="rpm">RPM</option>
                     <option value="other">Other</option>
                   </select>
                   <div className="flex gap-2">

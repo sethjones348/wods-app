@@ -33,9 +33,9 @@ export type ScoreName =
 export interface WorkoutElement {
   type: 'movement' | 'descriptive';
   movement?: {
-    amount: string | number; // e.g., "21-15-9", 21, "5x5"
+    amount: string | number | null; // e.g., "21-15-9", 21, "5x5", or null
     exercise: string; // e.g., "Hang Power Clean", "Burpee Over Bar"
-    unit?: string | null; // e.g., "135", "lbs", "cal"
+    unit?: string | null; // e.g., "135", "lbs", "cal", "watts", "rpm", or null
   };
   descriptive?: {
     text: string; // e.g., "Rest 3:00", "repeat", "Rest 1:1"
@@ -49,8 +49,8 @@ export interface WorkoutElement {
  */
 export interface ScoreElement {
   name: ScoreName;
-  type: 'time' | 'reps' | 'weight' | 'other'; // NOTE: "rounds" is NOT valid - use "reps" with metadata
-  value: string | number; // e.g., "4:06", "3 rounds + 15 reps", "315"
+  type: 'time' | 'reps' | 'weight' | 'cals' | 'watts' | 'rpm' | 'other'; // NOTE: "rounds" is NOT valid - use "reps" with metadata
+  value: string | number; // e.g., "4:06", "3 rounds + 15 reps", "315", "250 cals", "300 watts", "90 rpm"
   metadata?: {
     timeInSeconds?: number; // CRITICAL: "1:13" = 73 seconds, NOT 113 seconds
     totalReps?: number; // Total reps (for AMRAP: rounds * reps per round + reps into next round)
