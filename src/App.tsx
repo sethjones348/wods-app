@@ -60,18 +60,18 @@ function App() {
         <RedirectHandler />
         <ScrollToTop />
         <Layout>
-            <Routes>
-              <Route path="/" element={<FeedPage />} />
-              <Route path="/workouts" element={<WorkoutsPage />} />
-              <Route path="/workouts/:userId" element={<WorkoutsPage />} />
-              <Route path="/upload" element={<UploadPage />} />
-              <Route path="/workout/:id" element={<WorkoutDetailPage />} />
-              <Route path="/workout/:id/edit" element={<EditWorkoutPage />} />
-              <Route path="/profile/:id" element={<ProfilePage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/friends" element={<FriendsPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-            </Routes>
+          <Routes>
+            <Route path="/" element={<FeedPage />} />
+            <Route path="/workouts" element={<WorkoutsPage />} />
+            <Route path="/workouts/:userId" element={<WorkoutsPage />} />
+            <Route path="/upload" element={<UploadPage />} />
+            <Route path="/workout/:id" element={<WorkoutDetailPage />} />
+            <Route path="/workout/:id/edit" element={<EditWorkoutPage />} />
+            <Route path="/profile/:id" element={<ProfilePage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/friends" element={<FriendsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+          </Routes>
         </Layout>
       </BrowserRouter>
     </AuthProvider>
