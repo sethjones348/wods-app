@@ -1,0 +1,78 @@
+# Cursor Rules for WODS App
+
+## Branch Management
+
+**ALWAYS create a feature branch before making changes:**
+- Use descriptive branch names following the pattern: `fix/`, `feat/`, `refactor/`, `docs/`, etc.
+- Examples: `fix/url-routing`, `feat/user-authentication`, `refactor/workout-extraction`
+- Branch names should be short, descriptive, and kebab-case
+- Before starting work, check out a new branch: `git checkout -b fix/your-branch-name`
+
+## Build Verification
+
+**ALWAYS verify the build succeeds before completing changes:**
+- Run `npm run build` to ensure TypeScript compiles and the project builds successfully
+- Fix any build errors before marking work as complete
+- The build command runs: `tsc && vite build`
+
+## Test Requirements
+
+**ALWAYS run tests and ensure they pass:**
+- Run `npm test` to execute the test suite
+- All existing tests must pass before completing changes
+- If tests fail, fix the issues or update tests appropriately
+
+**ALWAYS add unit tests for new or changed behavior:**
+- When adding new features, write corresponding unit tests
+- When modifying existing behavior, update or add tests to cover the changes
+- Test files should be co-located with the code they test (e.g., `Component.test.tsx` next to `Component.tsx`)
+- Use Jest as the testing framework (already configured)
+
+## Development Workflow
+
+**Encourage local development:**
+- Always remind contributors to run `npm run dev` to start the local development server
+- The dev server runs on `http://localhost:5173` (default Vite port)
+- For network access, use `npm run dev-host` to allow connections from other devices
+- Hot module replacement (HMR) is enabled for fast development iteration
+
+## Documentation
+
+**Document complex features and fixes:**
+- For any complex feature, fix, or architectural change, create documentation in the `docs/` directory
+- Use descriptive filenames in kebab-case (e.g., `feature-name-implementation.md`, `bug-fix-explanation.md`)
+- Documentation should include:
+  - Overview of the change
+  - Why the change was made
+  - How it works (if complex)
+  - Any important implementation details
+  - Related files/components affected
+
+## Code Quality
+
+- Follow existing code style and patterns
+- Use TypeScript strictly (no `any` types unless absolutely necessary)
+- Ensure ESLint passes (run `npm run lint` if needed)
+- Write clear, self-documenting code with appropriate comments for complex logic
+
+## Project Structure
+
+- Source code: `src/`
+- Components: `src/components/`
+- Pages: `src/pages/`
+- Services: `src/services/`
+- Utilities: `src/utils/`
+- Types: `src/types/`
+- Documentation: `docs/`
+- Tests: Co-located with source files (`.test.ts` or `.test.tsx`)
+
+## Before Completing Work
+
+1. ✅ Created a feature branch (`fix/`, `feat/`, etc.)
+2. ✅ Code changes implemented
+3. ✅ Unit tests added/updated for changed behavior
+4. ✅ `npm test` passes
+5. ✅ `npm run build` succeeds
+6. ✅ Documentation added to `docs/` (if complex feature/fix)
+7. ✅ Ready for review/merge
+
