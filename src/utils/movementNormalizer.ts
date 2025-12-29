@@ -923,13 +923,6 @@ const MOVEMENT_ALIASES: Record<string, string[]> = {
     'dumbbell burpee box jumpover',
     'db burpee box jumpover',
   ],
-  'Dumbbell Box Step-up': [
-    'dumbbell box step-up',
-    'db box step-up',
-    'd.b. box step-up',
-    'dumbbell box step up',
-    'db box step up',
-  ],
   'Dumbbell Overhead Walking Lunge': [
     'dumbbell overhead walking lunge',
     'db overhead walking lunge',

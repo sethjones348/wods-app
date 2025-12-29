@@ -13,8 +13,10 @@ export interface FeedWorkout extends Workout {
 /**
  * Get feed of workouts from users the current user is following
  * Only returns public workouts
+ * @param limit - Number of workouts to return (default: 10)
+ * @param offset - Number of workouts to skip (default: 0)
  */
-export async function getFeedWorkouts(): Promise<FeedWorkout[]> {
+export async function getFeedWorkouts(limit: number = 10, offset: number = 0): Promise<FeedWorkout[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User must be authenticated to view feed');
@@ -46,7 +48,7 @@ export async function getFeedWorkouts(): Promise<FeedWorkout[]> {
     .in('user_id', followingIds)
     .or('privacy.eq.public,privacy.is.null')
     .order('date', { ascending: false })
-    .limit(50); // Limit to 50 most recent workouts
+    .range(offset, offset + limit - 1);
 
   if (error) {
     // If the join fails, try without join and fetch users separately
@@ -59,7 +61,7 @@ export async function getFeedWorkouts(): Promise<FeedWorkout[]> {
       .in('user_id', followingIds)
       .eq('privacy', 'public')
       .order('date', { ascending: false })
-      .limit(50);
+      .range(offset, offset + limit - 1);
 
     if (workoutsError) {
       throw new Error(`Failed to load feed: ${workoutsError.message}`);

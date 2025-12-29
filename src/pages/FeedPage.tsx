@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getFeedWorkouts, FeedWorkout } from '../services/feedService';
@@ -7,17 +7,23 @@ import { supabaseStorage } from '../services/supabaseStorage';
 import FeedWorkoutCard from '../components/FeedWorkoutCard';
 import { usePullToRefresh } from '../hooks/usePullToRefresh';
 
+const ITEMS_PER_PAGE = 10;
+
 export default function FeedPage() {
   const { isAuthenticated, user, login } = useAuth();
   const [workouts, setWorkouts] = useState<FeedWorkout[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasOwnWorkouts, setHasOwnWorkouts] = useState(false);
   const [hasFollowing, setHasFollowing] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const offsetRef = useRef(0);
+  const observerTarget = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
-      loadFeed();
+      loadFeed(true);
       checkUserState();
     } else {
       setIsLoading(false);
@@ -40,22 +46,65 @@ export default function FeedPage() {
     }
   };
 
-  const loadFeed = async () => {
-    setIsLoading(true);
+  const loadFeed = useCallback(async (reset: boolean = false) => {
+    if (reset) {
+      setIsLoading(true);
+      offsetRef.current = 0;
+      setHasMore(true);
+    } else {
+      setIsLoadingMore(true);
+    }
     setError(null);
+    
+    const currentOffset = reset ? 0 : offsetRef.current;
+    
     try {
-      const feedWorkouts = await getFeedWorkouts();
-      setWorkouts(feedWorkouts);
+      const feedWorkouts = await getFeedWorkouts(ITEMS_PER_PAGE, currentOffset);
+      
+      if (reset) {
+        setWorkouts(feedWorkouts);
+        offsetRef.current = feedWorkouts.length;
+      } else {
+        setWorkouts(prev => [...prev, ...feedWorkouts]);
+        offsetRef.current = offsetRef.current + feedWorkouts.length;
+      }
+      
+      // Check if there are more items to load
+      setHasMore(feedWorkouts.length === ITEMS_PER_PAGE);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load feed');
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
-  };
+  }, []);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+          loadFeed(false);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, isLoadingMore, isLoading, loadFeed]);
 
   // Pull-to-refresh hook (mobile only)
   const { isRefreshing, pullDistance, elementRef } = usePullToRefresh({
-    onRefresh: loadFeed,
+    onRefresh: () => loadFeed(true),
     enabled: isAuthenticated && !!user?.id,
   });
 
@@ -192,6 +241,18 @@ export default function FeedPage() {
                 <FeedWorkoutCard workout={workout} user={workout.user} />
               </div>
             ))}
+            
+            {/* Infinite scroll trigger */}
+            {hasMore && (
+              <div ref={observerTarget} className="py-8 flex justify-center">
+                {isLoadingMore && (
+                  <div className="flex items-center space-x-2">
+                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-cf-red"></div>
+                    <span className="text-sm text-gray-600">Loading more...</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
