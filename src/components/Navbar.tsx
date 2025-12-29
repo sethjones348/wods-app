@@ -29,7 +29,7 @@ export default function Navbar() {
                 <div className="flex justify-between items-center h-20">
                     <Link to="/" className="flex items-center">
                         <span className="text-2xl font-heading font-bold text-black">
-                            Sam<span className="text-cf-red">Fit</span>
+                            WODs<span className="text-cf-red">App</span>
                         </span>
                     </Link>
 

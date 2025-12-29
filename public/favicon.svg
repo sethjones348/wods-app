@@ -2,8 +2,8 @@
   <!-- Black background -->
   <rect width="100" height="100" fill="#000000" rx="15"/>
   
-  <!-- SF Text - extra bold and fat -->
-  <text x="18" y="70" font-family="Arial, sans-serif" font-size="58" font-weight="900" fill="#FFFFFF" letter-spacing="-3" stroke="#FFFFFF" stroke-width="0.5">S</text>
-  <text x="50" y="70" font-family="Arial, sans-serif" font-size="58" font-weight="900" fill="#E11931" letter-spacing="-3" stroke="#E11931" stroke-width="0.5">F</text>
+  <!-- WA Text - WODsApp logo -->
+  <text x="15" y="70" font-family="Arial, sans-serif" font-size="58" font-weight="900" fill="#FFFFFF" letter-spacing="-3" stroke="#FFFFFF" stroke-width="0.5">W</text>
+  <text x="50" y="70" font-family="Arial, sans-serif" font-size="58" font-weight="900" fill="#E11931" letter-spacing="-3" stroke="#E11931" stroke-width="0.5">A</text>
 </svg>
 

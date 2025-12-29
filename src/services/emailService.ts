@@ -7,13 +7,9 @@ interface SendEmailOptions {
   from?: string;
 }
 
-// Base64 encoded WODsApp logo (WA on black background)
-// TODO: Regenerate logo with WODsApp branding
-const WODSAPP_LOGO_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj4KICA8cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iIzAwMDAwMCIgcng9IjE1Ii8+CiAgPHRleHQgeD0iMTgiIHk9IjcwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iNTgiIGZvbnQtd2VpZ2h0PSI5MDAiIGZpbGw9IiNGRkZGRkYiIGxldHRlci1zcGFjaW5nPSItMyIgc3Ryb2tlPSIjRkZGRkZGIiBzdHJva2Utd2lkdGg9IjAuNSI+UzwvdGV4dD4KICA8dGV4dCB4PSI1MCIgeT0iNzAiIGZvbnQtZmFtaWl5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI1OCIgZm9udC13ZWlnaHQ9IjkwMCIgZmlsbD0iI0UxMTkzMSIgbGV0dGVyLXNwYWNpbmc9Ii0zIiBzdHJva2U9IiNFMTE5MzEiIHN0cm9rZS13aWR0aD0iMC41Ij5GPC90ZXh0Pgo8L3N2Zz4=';
-
+// Email header without images (text-only for better email client compatibility)
 const EMAIL_HEADER_WITH_LOGO = `
-          <img src="${WODSAPP_LOGO_BASE64}" alt="WODsApp" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 10px; display: inline-block;" />
-          <h1 style="margin: 0; color: #fff; display: inline-block; vertical-align: middle;">WODs<span style="color: #D21034;">App</span></h1>
+          <h1 style="margin: 0; color: #fff; text-align: center;">WODs<span style="color: #D21034;">App</span></h1>
 `;
 
 /**
