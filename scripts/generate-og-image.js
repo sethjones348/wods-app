@@ -54,7 +54,7 @@ async function generateOGImage() {
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
 
     // Wait a bit for fonts to load
-    await page.waitForTimeout(1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     console.log('📸 Taking screenshot...');
     await page.screenshot({
