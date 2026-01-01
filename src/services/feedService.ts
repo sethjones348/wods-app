@@ -33,7 +33,7 @@ export async function getFeedWorkouts(limit: number = 10, offset: number = 0): P
   }
 
   // Include own user ID so you can see your own workouts in the feed
-  const followingIds = follows ? follows.map(f => f.following_id) : [];
+  const followingIds = follows ? (follows as any[]).map((f: any) => f.following_id) : [];
   followingIds.push(user.id); // Add current user to see their own workouts
 
   // Get public workouts from followed users
@@ -72,7 +72,7 @@ export async function getFeedWorkouts(limit: number = 10, offset: number = 0): P
     }
 
     // Get unique user IDs
-    const userIds = [...new Set(workoutsData.map(w => w.user_id))];
+    const userIds = [...new Set((workoutsData as any[]).map((w: any) => w.user_id))];
     
     // Fetch users separately
     const { data: usersData } = await supabase
@@ -83,7 +83,7 @@ export async function getFeedWorkouts(limit: number = 10, offset: number = 0): P
     // Create a map of user ID to user data
     const usersMap = new Map();
     if (usersData) {
-      usersData.forEach(u => usersMap.set(u.id, u));
+      (usersData as any[]).forEach((u: any) => usersMap.set(u.id, u));
     }
 
     // Transform with user data from map

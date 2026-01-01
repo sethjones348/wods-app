@@ -1,5 +1,4 @@
 import { WorkoutExtraction } from '../types';
-import { generateRawTextForWhiteboard } from './rawTextGenerator';
 
 /**
  * Generate a whiteboard-style image from workout extraction

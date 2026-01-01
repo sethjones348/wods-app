@@ -165,7 +165,7 @@ async function saveWorkoutElements(workoutId: string, elements: WorkoutElement[]
         }).filter(Boolean);
 
         if (elementsData.length > 0) {
-            const { error } = await supabase.from('workout_elements').insert(elementsData);
+            const { error } = await supabase.from('workout_elements').insert(elementsData as any);
             if (error) {
                 throw new Error(`Failed to save workout elements: ${error.message}`);
             }
@@ -191,7 +191,7 @@ async function saveScoreElements(workoutId: string, elements: ScoreElement[]): P
             metadata: el.metadata || null,
         }));
 
-        const { error } = await supabase.from('score_elements').insert(elementsData);
+        const { error } = await supabase.from('score_elements').insert(elementsData as any);
         if (error) {
             throw new Error(`Failed to save score elements: ${error.message}`);
         }
@@ -331,7 +331,7 @@ export const supabaseStorage = {
             // Upsert workout
             const { error: workoutError } = await supabase
                 .from('workouts')
-                .upsert(workoutData);
+                .upsert(workoutData as any);
 
             if (workoutError) {
                 throw new Error(`Failed to save workout: ${workoutError.message}`);
@@ -382,7 +382,7 @@ export const supabaseStorage = {
             // Use Supabase client to upsert workout
             const { error } = await supabase
                 .from('workouts')
-                .upsert(workoutData);
+                .upsert(workoutData as any);
 
             if (error) {
                 throw new Error(`Failed to save workout: ${error.message}`);
@@ -543,8 +543,9 @@ export const supabaseStorage = {
         }
 
         // Check if this workout uses new structure
-        const hasNewStructure = data.title !== null ||
-            (data.movements === null && data.times === null && data.reps === null);
+        const dataTyped = data as any;
+        const hasNewStructure = dataTyped.title !== null ||
+            (dataTyped.movements === null && dataTyped.times === null && dataTyped.reps === null);
 
         if (hasNewStructure) {
             // Load new structure
@@ -570,12 +571,12 @@ export const supabaseStorage = {
                     .map(s => s.metadata!.totalReps!);
 
                 const workout: Workout = {
-                    id: data.id,
-                    name: data.title || data.name || undefined,
-                    title: data.title || undefined, // Include new structure field
-                    description: data.description || undefined, // Include new structure field
-                    date: data.date,
-                    rawText: data.raw_text || [],
+                    id: dataTyped.id,
+                    name: dataTyped.title || dataTyped.name || undefined,
+                    title: dataTyped.title || undefined, // Include new structure field
+                    description: dataTyped.description || undefined, // Include new structure field
+                    date: dataTyped.date,
+                    rawText: dataTyped.raw_text || [],
                     extractedData: {
                         type: times.length > 0 ? 'time' : reps.length > 0 ? 'reps' : 'unknown',
                         rounds: scoreElements.find(s => s.metadata?.rounds)?.metadata?.rounds || null,
@@ -583,12 +584,12 @@ export const supabaseStorage = {
                         times: times.length > 0 ? times : null,
                         reps: reps.length > 0 ? reps : null,
                     },
-                    imageUrl: data.image_url || '',
-                    userId: data.user_id,
-                    privacy: data.privacy || 'public',
+                    imageUrl: dataTyped.image_url || '',
+                    userId: dataTyped.user_id,
+                    privacy: dataTyped.privacy || 'public',
                     metadata: {
-                        confidence: data.confidence || undefined,
-                        rawGeminiText: data.metadata?.rawGeminiText || undefined,
+                        confidence: dataTyped.confidence || undefined,
+                        rawGeminiText: dataTyped.metadata?.rawGeminiText || undefined,
                     },
                 };
 
@@ -601,24 +602,24 @@ export const supabaseStorage = {
 
         // Old structure or fallback
         const workout: Workout = {
-            id: data.id,
-            name: data.name || data.title || undefined,
-            date: data.date,
-            rawText: data.raw_text || [],
+            id: dataTyped.id,
+            name: dataTyped.name || dataTyped.title || undefined,
+            date: dataTyped.date,
+            rawText: dataTyped.raw_text || [],
             extractedData: {
-                type: data.workout_type || 'unknown',
-                rounds: data.rounds,
-                movements: data.movements || [],
-                times: data.times || null,
-                reps: data.reps || null,
+                type: dataTyped.workout_type || 'unknown',
+                rounds: dataTyped.rounds,
+                movements: dataTyped.movements || [],
+                times: dataTyped.times || null,
+                reps: dataTyped.reps || null,
             },
-            imageUrl: data.image_url || '',
+            imageUrl: dataTyped.image_url || '',
             metadata: {
-                confidence: data.confidence || undefined,
-                rawGeminiText: data.metadata?.rawGeminiText || undefined,
+                confidence: dataTyped.confidence || undefined,
+                rawGeminiText: dataTyped.metadata?.rawGeminiText || undefined,
             },
-            userId: data.user_id,
-            privacy: data.privacy || 'public',
+            userId: dataTyped.user_id,
+            privacy: dataTyped.privacy || 'public',
         };
 
         // Generate default name for workouts that don't have one
@@ -650,8 +651,9 @@ export const supabaseStorage = {
         }
 
         // Delete image if it exists
-        if (workoutData?.image_url) {
-            await deleteImage(workoutData.image_url);
+        const workoutDataTyped = workoutData as any;
+        if (workoutDataTyped?.image_url) {
+            await deleteImage(workoutDataTyped.image_url);
         }
 
         // Delete workout elements (cascade should handle this, but being explicit)

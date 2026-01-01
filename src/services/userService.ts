@@ -85,7 +85,7 @@ export async function getOrCreateUserProfile(user: User): Promise<UserProfile> {
 
   const { data: createdUser, error: createError } = await supabase
     .from('users')
-    .insert(newUser)
+    .insert(newUser as any)
     .select()
     .single();
 
@@ -151,12 +151,13 @@ export async function updateUserProfile(
       .eq('id', userId)
       .single();
     
-    const currentSettings = current?.settings || { workoutPrivacy: 'public', showEmail: false };
+    const currentTyped = current as any;
+    const currentSettings = currentTyped?.settings || { workoutPrivacy: 'public', showEmail: false };
     updateData.settings = { ...currentSettings, ...updates.settings };
   }
 
-  const { data, error } = await supabase
-    .from('users')
+  const { data, error } = await (supabase
+    .from('users') as any)
     .update(updateData)
     .eq('id', userId)
     .select()

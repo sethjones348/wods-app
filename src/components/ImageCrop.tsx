@@ -106,7 +106,7 @@ export default function ImageCrop({ src, onCropComplete, onCancel, aspect }: Ima
       <div className="flex justify-center mb-4 max-w-full overflow-hidden">
         <ReactCrop
           crop={crop}
-          onChange={(pixelCrop, percentCrop) => setCrop(percentCrop)}
+          onChange={(_, percentCrop) => setCrop(percentCrop)}
           onComplete={(c) => setCompletedCrop(c)}
           aspect={aspect}
           className="max-w-full"

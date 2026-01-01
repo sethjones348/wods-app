@@ -91,7 +91,7 @@ export default function NotificationsPage() {
           table: 'notifications',
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
+        () => {
           // Reload notifications when changes occur
           loadNotifications();
         }

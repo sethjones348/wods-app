@@ -116,14 +116,14 @@ export async function sendFriendRequest(toUsername: string): Promise<FriendReque
 
   if (existingRequest) {
     // Update existing request to pending (handles case where previous request was accepted/declined)
-    const { data: updatedData, error: updateError } = await supabase
-      .from('friend_requests')
+    const { data: updatedData, error: updateError } = await (supabase
+      .from('friend_requests') as any)
       .update({
         status: 'pending',
         to_user_id: toUser.id,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', existingRequest.id)
+      .eq('id', (existingRequest as any).id)
       .select()
       .single();
     
@@ -138,7 +138,7 @@ export async function sendFriendRequest(toUsername: string): Promise<FriendReque
         to_username: normalizedUsername,
         to_user_id: toUser.id,
         status: 'pending',
-      })
+      } as any)
       .select()
       .single();
     
@@ -165,15 +165,16 @@ export async function sendFriendRequest(toUsername: string): Promise<FriendReque
     // Don't throw - friend request was created successfully
   }
 
+  const dataTyped = data as any;
   return {
-    id: data.id,
-    fromUserId: data.from_user_id,
-    toUsername: data.to_username,
-    toEmail: data.to_email,
-    toUserId: data.to_user_id,
-    status: data.status,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
+    id: dataTyped.id,
+    fromUserId: dataTyped.from_user_id,
+    toUsername: dataTyped.to_username,
+    toEmail: dataTyped.to_email,
+    toUserId: dataTyped.to_user_id,
+    status: dataTyped.status,
+    createdAt: dataTyped.created_at,
+    updatedAt: dataTyped.updated_at,
   };
 }
 
@@ -221,7 +222,7 @@ export async function getPendingFriendRequests(): Promise<FriendRequest[]> {
     return [];
   }
 
-  return data.map((req) => ({
+  return (data as any[]).map((req: any) => ({
     id: req.id,
     fromUserId: req.from_user_id,
     toUsername: req.to_username,
@@ -267,7 +268,7 @@ export async function getSentFriendRequests(): Promise<FriendRequest[]> {
     return [];
   }
 
-  return data.map((req) => ({
+  return (data as any[]).map((req: any) => ({
     id: req.id,
     fromUserId: req.from_user_id,
     toUsername: req.to_username,
@@ -311,18 +312,19 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
   const currentUsername = currentUserProfile?.username;
 
   // Verify this request is for the current user
+  const requestTyped = request as any;
   const isForCurrentUser = 
-    request.to_user_id === user.id ||
-    (currentUsername && request.to_username?.toLowerCase() === currentUsername.toLowerCase()) ||
-    (user.email && request.to_email?.toLowerCase() === user.email.toLowerCase());
+    requestTyped.to_user_id === user.id ||
+    (currentUsername && requestTyped.to_username?.toLowerCase() === currentUsername.toLowerCase()) ||
+    (user.email && requestTyped.to_email?.toLowerCase() === user.email.toLowerCase());
 
   if (!isForCurrentUser) {
     throw new Error('Unauthorized to accept this friend request');
   }
 
   // Update request status
-  const { error: updateError } = await supabase
-    .from('friend_requests')
+  const { error: updateError } = await (supabase
+    .from('friend_requests') as any)
     .update({ status: 'accepted' })
     .eq('id', requestId);
 
@@ -331,8 +333,8 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
   }
 
   // Create follow relationship (bidirectional)
-  const fromUserId = request.from_user_id;
-  const toUserId = request.to_user_id || user.id;
+  const fromUserId = requestTyped.from_user_id;
+  const toUserId = requestTyped.to_user_id || user.id;
 
   // Create follow: current user follows the requester
   await supabase
@@ -340,7 +342,7 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
     .insert({
       follower_id: user.id,
       following_id: fromUserId,
-    })
+    } as any)
     .select()
     .single();
 
@@ -351,7 +353,7 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
       .insert({
         follower_id: fromUserId,
         following_id: toUserId,
-      })
+      } as any)
       .select()
       .single();
   }
@@ -382,18 +384,19 @@ export async function declineFriendRequest(requestId: string): Promise<void> {
   const currentUsername = currentUserProfile?.username;
 
   // Verify this request is for the current user
+  const requestTyped2 = request as any;
   const isForCurrentUser = 
-    request.to_user_id === user.id ||
-    (currentUsername && request.to_username?.toLowerCase() === currentUsername.toLowerCase()) ||
-    (user.email && request.to_email?.toLowerCase() === user.email.toLowerCase());
+    requestTyped2.to_user_id === user.id ||
+    (currentUsername && requestTyped2.to_username?.toLowerCase() === currentUsername.toLowerCase()) ||
+    (user.email && requestTyped2.to_email?.toLowerCase() === user.email.toLowerCase());
 
   if (!isForCurrentUser) {
     throw new Error('Unauthorized to decline this friend request');
   }
 
   // Update request status
-  const { error } = await supabase
-    .from('friend_requests')
+  const { error } = await (supabase
+    .from('friend_requests') as any)
     .update({ status: 'declined' })
     .eq('id', requestId);
 
@@ -428,7 +431,7 @@ export async function getFollowing(): Promise<Follow[]> {
     return [];
   }
 
-  return data.map((follow) => ({
+  return (data as any[]).map((follow: any) => ({
     id: follow.id,
     followerId: follow.follower_id,
     followingId: follow.following_id,
@@ -469,7 +472,7 @@ export async function getFollowers(): Promise<Follow[]> {
     return [];
   }
 
-  return data.map((follow) => ({
+  return (data as any[]).map((follow: any) => ({
     id: follow.id,
     followerId: follow.follower_id,
     followingId: follow.following_id,

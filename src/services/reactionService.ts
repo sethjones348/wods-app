@@ -58,7 +58,7 @@ export async function addReaction(workoutId: string): Promise<void> {
     .insert({
       workout_id: workoutId,
       user_id: user.id,
-    });
+    } as any);
 
   if (error) {
     // If it's a unique constraint violation, user already reacted
@@ -78,7 +78,8 @@ export async function addReaction(workoutId: string): Promise<void> {
       .single();
 
     if (!workoutError && workout) {
-      const workoutOwner = Array.isArray(workout.users) ? workout.users[0] : workout.users;
+      const workoutTyped = workout as any;
+      const workoutOwner = Array.isArray(workoutTyped.users) ? workoutTyped.users[0] : workoutTyped.users;
       
       // Only send if:
       // 1. Not reacting to own workout
@@ -93,9 +94,10 @@ export async function addReaction(workoutId: string): Promise<void> {
             .eq('id', user.id)
             .single();
 
-          const reactorName = reactor?.name || 'Someone';
+          const reactorTyped = reactor as any;
+          const reactorName = reactorTyped?.name || 'Someone';
           const ownerName = workoutOwner.name || 'User';
-          const workoutName = workout.name || 'Your workout';
+          const workoutName = workoutTyped.name || 'Your workout';
 
           // Send email notification (non-blocking)
           sendReactionNotificationEmail(
@@ -186,7 +188,7 @@ export async function getReactionUsers(workoutId: string): Promise<Array<{
       return [];
     }
 
-    const userIds = reactionsData.map(r => r.user_id);
+    const userIds = reactionsData.map((r: any) => r.user_id);
     const { data: usersData, error: usersError } = await supabase
       .from('users')
       .select('id, name, email, picture')
@@ -196,7 +198,7 @@ export async function getReactionUsers(workoutId: string): Promise<Array<{
       throw new Error(`Failed to get users: ${usersError.message}`);
     }
 
-    return (usersData || []).map(u => ({
+    return ((usersData || []) as any[]).map((u: any) => ({
       id: u.id,
       name: u.name,
       email: u.email,
@@ -212,10 +214,11 @@ export async function getReactionUsers(workoutId: string): Promise<Array<{
   
   for (const row of data) {
     // Supabase returns users as an array when using !inner, but we expect a single user
+    const rowTyped = row as any;
     let userData: any = null;
-    if (row.users) {
+    if (rowTyped.users) {
       // If it's an array, take the first element
-      userData = Array.isArray(row.users) ? row.users[0] : row.users;
+      userData = Array.isArray(rowTyped.users) ? rowTyped.users[0] : rowTyped.users;
     }
     
     if (userData && userData.id) {

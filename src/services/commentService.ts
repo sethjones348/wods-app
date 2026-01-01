@@ -46,7 +46,7 @@ export async function getComments(workoutId: string): Promise<Comment[]> {
       return [];
     }
 
-    const userIds = [...new Set(commentsData.map(c => c.user_id))];
+    const userIds = [...new Set(commentsData.map((c: any) => c.user_id))];
     const { data: usersData } = await supabase
       .from('users')
       .select('id, name, email, picture')
@@ -54,7 +54,7 @@ export async function getComments(workoutId: string): Promise<Comment[]> {
 
     const usersMap = new Map();
     if (usersData) {
-      usersData.forEach(u => usersMap.set(u.id, u));
+      (usersData as any[]).forEach((u: any) => usersMap.set(u.id, u));
     }
 
     return commentsData.map((row: any) => {
@@ -116,7 +116,7 @@ export async function addComment(workoutId: string, text: string): Promise<Comme
       workout_id: workoutId,
       user_id: user.id,
       text: text.trim(),
-    })
+    } as any)
     .select()
     .single();
 
@@ -131,19 +131,21 @@ export async function addComment(workoutId: string, text: string): Promise<Comme
     .eq('id', user.id)
     .single();
 
+  const commentData = data as any;
+  const userDataTyped = userData as any;
   const comment: Comment = {
-    id: data.id,
-    workoutId: data.workout_id,
-    userId: data.user_id,
-    text: data.text,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-    edited: data.edited || false,
-    user: userData ? {
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      picture: userData.picture || undefined,
+    id: commentData.id,
+    workoutId: commentData.workout_id,
+    userId: commentData.user_id,
+    text: commentData.text,
+    createdAt: commentData.created_at,
+    updatedAt: commentData.updated_at,
+    edited: commentData.edited || false,
+    user: userDataTyped ? {
+      id: userDataTyped.id,
+      name: userDataTyped.name,
+      email: userDataTyped.email,
+      picture: userDataTyped.picture || undefined,
     } : undefined,
   };
 
@@ -157,7 +159,8 @@ export async function addComment(workoutId: string, text: string): Promise<Comme
       .single();
 
     if (!workoutError && workout) {
-      const workoutOwner = Array.isArray(workout.users) ? workout.users[0] : workout.users;
+      const workoutTyped = workout as any;
+      const workoutOwner = Array.isArray(workoutTyped.users) ? workoutTyped.users[0] : workoutTyped.users;
       
       // Only send if:
       // 1. Not commenting on own workout
@@ -165,16 +168,16 @@ export async function addComment(workoutId: string, text: string): Promise<Comme
       if (workoutOwner && workoutOwner.id !== user.id) {
         const emailNotifications = workoutOwner.settings?.emailNotifications;
         if (emailNotifications !== false) { // Default to true if not set
-          const commenterName = userData?.name || 'Someone';
+          const commenterName = userDataTyped?.name || 'Someone';
           const ownerName = workoutOwner.name || 'User';
-          const workoutName = workout.name || 'Your workout';
+          const workoutName = workoutTyped.name || 'Your workout';
 
           // Send email notification (non-blocking)
           sendCommentNotificationEmail(
             workoutOwner.email,
             ownerName,
             commenterName,
-            data.text,
+            commentData.text,
             workoutName,
             workoutId
           ).catch(error => {
@@ -201,8 +204,8 @@ export async function updateComment(commentId: string, text: string): Promise<vo
     throw new Error('User must be authenticated to update comment');
   }
 
-  const { error } = await supabase
-    .from('comments')
+  const { error } = await (supabase
+    .from('comments') as any)
     .update({
       text: text.trim(),
       edited: true,

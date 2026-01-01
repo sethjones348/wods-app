@@ -49,8 +49,8 @@ export async function getNotifications(limit: number = 50, offset: number = 0): 
   }
 
   // Get unique actor IDs and workout IDs
-  const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))];
-  const workoutIds = [...new Set(notifications.map(n => n.workout_id).filter(Boolean))];
+  const actorIds = [...new Set((notifications as any[]).map((n: any) => n.actor_id).filter(Boolean))];
+  const workoutIds = [...new Set((notifications as any[]).map((n: any) => n.workout_id).filter(Boolean))];
 
   // Fetch actors
   const { data: actors } = await supabase
@@ -65,8 +65,8 @@ export async function getNotifications(limit: number = 50, offset: number = 0): 
     .in('id', workoutIds) : { data: null };
 
   // Create lookup maps
-  const actorMap = new Map(actors?.map(a => [a.id, a]) || []);
-  const workoutMap = new Map(workouts?.map(w => [w.id, w]) || []);
+  const actorMap = new Map((actors as any[])?.map((a: any) => [a.id, a]) || []);
+  const workoutMap = new Map((workouts as any[])?.map((w: any) => [w.id, w]) || []);
 
   // Map notifications with related data
   return notifications.map((n: any) => {
@@ -100,7 +100,7 @@ export async function getNotifications(limit: number = 50, offset: number = 0): 
  * Get unread notification count
  */
 export async function getUnreadCount(): Promise<number> {
-  const { data, error, count } = await supabase
+  const { error, count } = await supabase
     .from('notifications')
     .select('*', { count: 'exact', head: true })
     .eq('read', false);
@@ -116,8 +116,8 @@ export async function getUnreadCount(): Promise<number> {
  * Mark notification as read
  */
 export async function markAsRead(notificationId: string): Promise<void> {
-  const { error } = await supabase
-    .from('notifications')
+  const { error } = await (supabase
+    .from('notifications') as any)
     .update({ read: true })
     .eq('id', notificationId);
 
@@ -135,8 +135,8 @@ export async function markAllAsRead(): Promise<void> {
     throw new Error('User must be authenticated');
   }
 
-  const { error } = await supabase
-    .from('notifications')
+  const { error } = await (supabase
+    .from('notifications') as any)
     .update({ read: true })
     .eq('user_id', user.id)
     .eq('read', false);

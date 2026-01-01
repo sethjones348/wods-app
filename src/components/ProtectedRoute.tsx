@@ -10,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [adminStatus, setAdminStatus] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 

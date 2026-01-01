@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { UserProfile } from '../services/userService';
-import { getAllUsers, setUserAdminStatus, isAdmin } from '../services/adminService';
+import { getAllUsers, setUserAdminStatus } from '../services/adminService';
 import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();

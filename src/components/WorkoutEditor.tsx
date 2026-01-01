@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { WorkoutExtraction, WorkoutElement, ScoreElement, ScoreName } from '../types';
 import { getAllStandardMovements, validateAndNormalizeMovement } from '../utils/movementNormalizer';
 import { formatSecondsToTime, parseTimeToSeconds } from '../utils/timeUtils';

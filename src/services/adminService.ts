@@ -21,7 +21,7 @@ export async function isAdmin(): Promise<boolean> {
     return false;
   }
 
-  return data.is_admin === true;
+  return (data as any).is_admin === true;
 }
 
 /**
@@ -52,7 +52,7 @@ export async function getAllUsers(): Promise<UserProfile[]> {
  * @param userId The ID of the user to update
  * @param isAdmin Whether the user should be an admin
  */
-export async function setUserAdminStatus(userId: string, isAdmin: boolean): Promise<void> {
+export async function setUserAdminStatus(userId: string, adminStatus: boolean): Promise<void> {
   // First verify the current user is an admin
   const currentUserIsAdmin = await isAdmin();
   if (!currentUserIsAdmin) {
@@ -61,13 +61,13 @@ export async function setUserAdminStatus(userId: string, isAdmin: boolean): Prom
 
   // Prevent users from removing their own admin status
   const { data: { user } } = await supabase.auth.getUser();
-  if (user && user.id === userId && !isAdmin) {
+  if (user && user.id === userId && !adminStatus) {
     throw new Error('You cannot remove your own admin status');
   }
 
-  const { error } = await supabase
-    .from('users')
-    .update({ is_admin: isAdmin })
+  const { error } = await (supabase
+    .from('users') as any)
+    .update({ is_admin: adminStatus })
     .eq('id', userId);
 
   if (error) {
