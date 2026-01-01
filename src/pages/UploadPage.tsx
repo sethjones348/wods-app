@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import ImageUpload from '../components/ImageUpload';
 import WorkoutEditor from '../components/WorkoutEditor';
 import { WorkoutExtraction } from '../types';
 import { workoutExtractor } from '../services/workoutExtractorWrapper';
+import { parseWorkoutFromRawText } from '../services/workoutExtractorAlgorithmic';
 import { workoutStore } from '../store/workoutStore';
 import { compressImage } from '../utils/imageCompression';
+import { generateWhiteboardImageFromExtraction } from '../utils/whiteboardGenerator';
 
 export default function UploadPage() {
     const { isAuthenticated, user } = useAuth();
@@ -16,12 +18,14 @@ export default function UploadPage() {
     const [isExtracting, setIsExtracting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isManualEntry, setIsManualEntry] = useState(false);
     const { saveWorkout } = workoutStore();
 
     const handleImageUpload = async (imageBase64: string, dateTaken?: string) => {
         setUploadedImage(imageBase64);
         setError(null);
         setIsExtracting(true);
+        setIsManualEntry(false); // Image upload, not manual entry
 
         try {
             const result = await workoutExtractor.extract(imageBase64);
@@ -35,6 +39,48 @@ export default function UploadPage() {
             console.error('Extraction error:', err);
         } finally {
             setIsExtracting(false);
+        }
+    };
+
+    const handleTextSubmit = async (text: string) => {
+        setError(null);
+        setIsExtracting(true);
+        setIsManualEntry(true); // Mark as manual entry
+
+        try {
+            // Parse the text to extract workout data
+            const result = parseWorkoutFromRawText(text);
+            // Set current date for manual entries
+            const extractionData = {
+                ...result,
+                date: new Date().toISOString(),
+            };
+            setExtraction(extractionData);
+
+            // Generate whiteboard image from parsed extraction data
+            const whiteboardImage = generateWhiteboardImageFromExtraction(extractionData);
+            setUploadedImage(whiteboardImage);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to parse workout data');
+            console.error('Text parsing error:', err);
+        } finally {
+            setIsExtracting(false);
+        }
+    };
+
+    // Function to regenerate whiteboard image from workout data
+    const regenerateWhiteboardImage = (workoutData: WorkoutExtraction) => {
+        if (isManualEntry) {
+            try {
+                // Only regenerate if we have actual content
+                if (workoutData.workout.length > 0 || workoutData.score.length > 0) {
+                    const whiteboardImage = generateWhiteboardImageFromExtraction(workoutData);
+                    setUploadedImage(whiteboardImage);
+                }
+            } catch (err) {
+                console.error('Failed to regenerate whiteboard image:', err);
+                console.error('Workout data:', workoutData);
+            }
         }
     };
 
@@ -73,6 +119,13 @@ export default function UploadPage() {
         setUploadedImage(null);
         setExtraction(null);
         setError(null);
+        setIsManualEntry(false);
+    };
+
+    const handleExtractionChange = (newExtraction: WorkoutExtraction) => {
+        // Only regenerate the image, don't update extraction state
+        // The extraction state will be updated only on save
+        regenerateWhiteboardImage(newExtraction);
     };
 
     if (!isAuthenticated) {
@@ -140,6 +193,7 @@ export default function UploadPage() {
                         <div className="px-4 md:px-0">
                             <ImageUpload
                                 onUpload={handleImageUpload}
+                                onTextSubmit={handleTextSubmit}
                                 isLoading={isExtracting}
                                 uploadedImage={uploadedImage}
                             />
@@ -151,6 +205,7 @@ export default function UploadPage() {
                         imageUrl={uploadedImage || ''}
                         onSave={handleSave}
                         onCancel={handleCancel}
+                        onExtractionChange={handleExtractionChange}
                         isSaving={isSaving}
                     />
                 )}

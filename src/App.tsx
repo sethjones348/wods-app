@@ -9,6 +9,9 @@ import EditWorkoutPage from './pages/EditWorkoutPage';
 import ProfilePage from './pages/ProfilePage';
 import FriendsPage from './pages/FriendsPage';
 import FeedPage from './pages/FeedPage';
+import NotificationsPage from './pages/NotificationsPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import ProtectedRoute from './components/ProtectedRoute';
 import PrivacyPage from './pages/PrivacyPage';
 
 // Dynamically determine base path based on current location
@@ -60,18 +63,27 @@ function App() {
         <RedirectHandler />
         <ScrollToTop />
         <Layout>
-          <Routes>
-            <Route path="/" element={<FeedPage />} />
-            <Route path="/workouts" element={<WorkoutsPage />} />
-            <Route path="/workouts/:userId" element={<WorkoutsPage />} />
-            <Route path="/upload" element={<UploadPage />} />
-            <Route path="/workout/:id" element={<WorkoutDetailPage />} />
-            <Route path="/workout/:id/edit" element={<EditWorkoutPage />} />
-            <Route path="/profile/:id" element={<ProfilePage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/friends" element={<FriendsPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-          </Routes>
+            <Routes>
+              <Route path="/" element={<FeedPage />} />
+              <Route path="/workouts" element={<WorkoutsPage />} />
+              <Route path="/workouts/:userId" element={<WorkoutsPage />} />
+              <Route path="/upload" element={<UploadPage />} />
+              <Route path="/workout/:id" element={<WorkoutDetailPage />} />
+              <Route path="/workout/:id/edit" element={<EditWorkoutPage />} />
+              <Route path="/profile/:id" element={<ProfilePage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/friends" element={<FriendsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminDashboardPage />
+                  </ProtectedRoute>
+                } 
+              />
+            </Routes>
         </Layout>
       </BrowserRouter>
     </AuthProvider>

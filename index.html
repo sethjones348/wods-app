@@ -41,8 +41,42 @@
     <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="padding: 20px; font-family: sans-serif; text-align: center;">
+        <p>Loading app...</p>
+        <p style="font-size: 12px; color: #666;">If this message doesn't disappear, check the browser console for errors.</p>
+      </div>
+    </div>
+    <script>
+      // Log immediately to verify script execution
+      console.log('HTML script tag executed');
+      console.log('Root element exists:', !!document.getElementById('root'));
+    </script>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Check if React mounted after a delay
+      setTimeout(() => {
+        const root = document.getElementById('root');
+        if (root && root.children.length === 1 && root.children[0].textContent?.includes('Loading app')) {
+          console.error('App failed to mount - React did not render');
+          root.innerHTML = `
+            <div style="padding: 20px; font-family: sans-serif; max-width: 800px; margin: 0 auto;">
+              <h1 style="color: #D21034;">App Failed to Load</h1>
+              <p>The React app did not mount. Check the browser console (F12) for errors.</p>
+              <p>Common issues:</p>
+              <ul style="text-align: left; margin-top: 10px;">
+                <li>Missing Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)</li>
+                <li>Module import errors</li>
+                <li>JavaScript syntax errors</li>
+              </ul>
+              <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                Open the browser console (F12) and look for red error messages.
+              </p>
+            </div>
+          `;
+        }
+      }, 2000);
+    </script>
   </body>
 </html>
 

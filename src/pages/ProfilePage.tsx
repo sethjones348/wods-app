@@ -18,12 +18,27 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
+    username: '',
     bio: '',
     workoutPrivacy: 'public' as 'public' | 'private',
     boxName: '',
     level: '',
     favoriteMovements: [] as string[],
     prs: {} as Record<string, string>,
+    notifications: {
+      comments: true,
+      reactions: true,
+      follows: true,
+      friendRequests: true,
+    },
+    emailNotifications: {
+      enabled: true,
+      frequency: 'daily' as 'instant' | 'daily' | 'weekly' | 'never',
+      comments: true,
+      reactions: true,
+      follows: true,
+      friendRequests: true,
+    },
   });
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
   const [showPictureEditOptions, setShowPictureEditOptions] = useState(false);
@@ -36,6 +51,8 @@ export default function ProfilePage() {
   const [weeklyWorkouts, setWeeklyWorkouts] = useState<Workout[]>([]);
   const [movementAnalysisPeriod, setMovementAnalysisPeriod] = useState<'7days' | '30days' | 'alltime'>('30days');
   const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [showDateModal, setShowDateModal] = useState(false);
   const { workouts, loadWorkouts } = workoutStore();
 
   const userId = id || currentUser?.id;
@@ -52,12 +69,27 @@ export default function ProfilePage() {
         if (userProfile) {
           setEditForm({
             name: userProfile.name,
+            username: userProfile.username || '',
             bio: userProfile.bio || '',
             workoutPrivacy: userProfile.settings.workoutPrivacy,
             boxName: userProfile.boxName || '',
             level: userProfile.level || '',
             favoriteMovements: userProfile.favoriteMovements || [],
             prs: userProfile.prs || {},
+            notifications: userProfile.settings.notifications || {
+              comments: true,
+              reactions: true,
+              follows: true,
+              friendRequests: true,
+            },
+            emailNotifications: userProfile.settings.emailNotifications || {
+              enabled: true,
+              frequency: 'daily',
+              comments: true,
+              reactions: true,
+              follows: true,
+              friendRequests: true,
+            },
           });
         }
       } catch (error) {
@@ -165,24 +197,51 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!userId || !isOwnProfile) return;
 
+    // Validate name
+    if (!editForm.name || editForm.name.trim() === '') {
+      alert('Name is required');
+      return;
+    }
+
+    // Validate username format if provided
+    if (editForm.username && editForm.username.trim() !== '') {
+      const usernameRegex = /^[a-z0-9_]+$/;
+      if (!usernameRegex.test(editForm.username)) {
+        alert('Username can only contain lowercase letters, numbers, and underscores');
+        return;
+      }
+    }
+
     try {
       const updated = await updateUserProfile(userId, {
-        name: editForm.name,
-        bio: editForm.bio || undefined,
-        boxName: editForm.boxName || undefined,
-        level: editForm.level || undefined,
+        name: editForm.name.trim(),
+        username: editForm.username?.trim() || undefined,
+        bio: editForm.bio?.trim() || undefined,
+        boxName: editForm.boxName?.trim() || undefined,
+        level: editForm.level?.trim() || undefined,
         favoriteMovements: editForm.favoriteMovements.length > 0 ? editForm.favoriteMovements : undefined,
         prs: Object.keys(editForm.prs).length > 0 ? editForm.prs : undefined,
         settings: {
           workoutPrivacy: editForm.workoutPrivacy,
           showEmail: profile?.settings?.showEmail || false,
+          notifications: editForm.notifications,
+          emailNotifications: editForm.emailNotifications,
         },
       });
       setProfile(updated);
       setIsEditing(false);
     } catch (error) {
       console.error('Failed to update profile:', error);
-      alert('Failed to update profile');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+      
+      // Provide more specific error messages
+      if (errorMessage.includes('username') || errorMessage.includes('unique')) {
+        alert('This username is already taken. Please choose a different one.');
+      } else if (errorMessage.includes('permission') || errorMessage.includes('policy')) {
+        alert('You do not have permission to update this profile. Please make sure you are logged in.');
+      } else {
+        alert(`Failed to update profile: ${errorMessage}`);
+      }
     }
   };
 
@@ -399,7 +458,14 @@ export default function ProfilePage() {
                   ) : (
                     <h1 className="text-xl md:text-2xl sm:text-3xl font-heading font-bold">{profile.name}</h1>
                   )}
-                  <p className="text-sm md:text-base text-gray-600">{profile.email}</p>
+                  {profile.username ? (
+                    <p className="text-sm md:text-base text-gray-600">@{profile.username}</p>
+                  ) : (
+                    <p className="text-sm md:text-base text-gray-500 italic">No username set</p>
+                  )}
+                  {isOwnProfile && profile.email && (
+                    <p className="text-sm md:text-base text-gray-500">{profile.email}</p>
+                  )}
                 </div>
               </div>
               {isOwnProfile && (
@@ -422,6 +488,20 @@ export default function ProfilePage() {
 
             {isEditing && isOwnProfile ? (
               <div className="space-y-4 mt-4">
+                <div>
+                  <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') })}
+                    pattern="[a-z0-9_]+"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none"
+                    placeholder="samjones12345"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Username can only contain lowercase letters, numbers, and underscores. Used for friend connections.</p>
+                </div>
                 <div>
                   <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
                     Bio
@@ -581,6 +661,216 @@ export default function ProfilePage() {
                     <option value="private">Private (no feed)</option>
                   </select>
                 </div>
+
+                {/* Settings Section */}
+                <div className="border-t border-gray-200 pt-4">
+                  <h3 className="text-lg font-heading font-bold mb-4">Notification Settings</h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="text-sm font-semibold uppercase tracking-wider mb-3 text-gray-700">
+                        In-App Notifications
+                      </h4>
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editForm.notifications.comments}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                notifications: {
+                                  ...editForm.notifications,
+                                  comments: e.target.checked,
+                                },
+                              })
+                            }
+                            className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                          />
+                          <span className="text-sm text-gray-700">Comments on my workouts</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editForm.notifications.reactions}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                notifications: {
+                                  ...editForm.notifications,
+                                  reactions: e.target.checked,
+                                },
+                              })
+                            }
+                            className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                          />
+                          <span className="text-sm text-gray-700">Reactions to my workouts</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editForm.notifications.follows}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                notifications: {
+                                  ...editForm.notifications,
+                                  follows: e.target.checked,
+                                },
+                              })
+                            }
+                            className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                          />
+                          <span className="text-sm text-gray-700">New followers</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editForm.notifications.friendRequests}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                notifications: {
+                                  ...editForm.notifications,
+                                  friendRequests: e.target.checked,
+                                },
+                              })
+                            }
+                            className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                          />
+                          <span className="text-sm text-gray-700">Friend request accepted</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 pt-4">
+                      <h4 className="text-sm font-semibold uppercase tracking-wider mb-3 text-gray-700">
+                        Email Notifications
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={editForm.emailNotifications.enabled}
+                            onChange={(e) =>
+                              setEditForm({
+                                ...editForm,
+                                emailNotifications: {
+                                  ...editForm.emailNotifications,
+                                  enabled: e.target.checked,
+                                },
+                              })
+                            }
+                            className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                          />
+                          <span className="text-sm font-semibold text-gray-700">Enable email notifications</span>
+                        </label>
+
+                        {editForm.emailNotifications.enabled && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
+                                Email Frequency
+                              </label>
+                              <select
+                                value={editForm.emailNotifications.frequency}
+                                onChange={(e) =>
+                                  setEditForm({
+                                    ...editForm,
+                                    emailNotifications: {
+                                      ...editForm.emailNotifications,
+                                      frequency: e.target.value as 'instant' | 'daily' | 'weekly' | 'never',
+                                    },
+                                  })
+                                }
+                                className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none min-h-[44px]"
+                              >
+                                <option value="instant">Instant (receive immediately)</option>
+                                <option value="daily">Daily digest</option>
+                                <option value="weekly">Weekly digest</option>
+                                <option value="never">Never</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-3">
+                              <p className="text-sm font-semibold text-gray-600">Email me about:</p>
+                              <label className="flex items-center gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.emailNotifications.comments}
+                                  onChange={(e) =>
+                                    setEditForm({
+                                      ...editForm,
+                                      emailNotifications: {
+                                        ...editForm.emailNotifications,
+                                        comments: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                                />
+                                <span className="text-sm text-gray-700">Comments on my workouts</span>
+                              </label>
+                              <label className="flex items-center gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.emailNotifications.reactions}
+                                  onChange={(e) =>
+                                    setEditForm({
+                                      ...editForm,
+                                      emailNotifications: {
+                                        ...editForm.emailNotifications,
+                                        reactions: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                                />
+                                <span className="text-sm text-gray-700">Reactions to my workouts</span>
+                              </label>
+                              <label className="flex items-center gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.emailNotifications.follows}
+                                  onChange={(e) =>
+                                    setEditForm({
+                                      ...editForm,
+                                      emailNotifications: {
+                                        ...editForm.emailNotifications,
+                                        follows: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                                />
+                                <span className="text-sm text-gray-700">New followers</span>
+                              </label>
+                              <label className="flex items-center gap-3 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.emailNotifications.friendRequests}
+                                  onChange={(e) =>
+                                    setEditForm({
+                                      ...editForm,
+                                      emailNotifications: {
+                                        ...editForm.emailNotifications,
+                                        friendRequests: e.target.checked,
+                                      },
+                                    })
+                                  }
+                                  className="w-5 h-5 text-cf-red border-gray-300 rounded focus:ring-cf-red"
+                                />
+                                <span className="text-sm text-gray-700">Friend request accepted</span>
+                              </label>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   onClick={() => setIsEditing(false)}
                   className="text-gray-600 hover:text-gray-800"
@@ -675,13 +965,19 @@ export default function ProfilePage() {
                             return (
                               <div
                                 key={dayStr}
+                                onClick={() => {
+                                  if (isCurrentMonth) {
+                                    setSelectedDate(day);
+                                    setShowDateModal(true);
+                                  }
+                                }}
                                 className={`w-8 h-8 rounded-sm flex-shrink-0 ${hasWorkout && isCurrentMonth
                                   ? 'bg-cf-red/40 hover:bg-cf-red/60'
                                   : isCurrentMonth
                                     ? 'bg-gray-100 hover:bg-gray-200'
                                     : 'bg-transparent'
-                                  } transition-colors cursor-pointer`}
-                                title={isCurrentMonth ? `${format(day, 'MMM d, yyyy')}${hasWorkout ? ' - Workout' : ' - No workout'}` : ''}
+                                  } transition-colors ${isCurrentMonth ? 'cursor-pointer' : 'cursor-default'}`}
+                                title={isCurrentMonth ? `${format(day, 'MMM d, yyyy')}${hasWorkout ? ' - Click to view workouts' : ' - No workout'}` : ''}
                               />
                             );
                           })}
@@ -704,6 +1000,126 @@ export default function ProfilePage() {
             </div>
           </div>
         }
+
+        {/* Date Modal - Shows workouts for selected date */}
+        {showDateModal && selectedDate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => setShowDateModal(false)}>
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-xl font-heading font-bold">
+                  {format(selectedDate, 'EEEE, MMMM d, yyyy')}
+                </h2>
+                <button
+                  onClick={() => setShowDateModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="overflow-y-auto flex-1 px-6 py-4">
+                {(() => {
+                  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+                  const dayWorkouts = weeklyWorkouts.filter((workout) => {
+                    const workoutDateStr = format(parseISO(workout.date), 'yyyy-MM-dd');
+                    return workoutDateStr === selectedDateStr;
+                  });
+
+                  if (dayWorkouts.length === 0) {
+                    return (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600">No workouts completed on this day</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {dayWorkouts.map((workout) => (
+                        <Link
+                          key={workout.id}
+                          to={`/workout/${workout.id}`}
+                          onClick={() => setShowDateModal(false)}
+                          className="block"
+                        >
+                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 hover:border-cf-red transition-all">
+                            <div className="flex justify-between items-start mb-3 gap-2">
+                              <h3 className="text-lg font-heading font-bold text-black flex-1 min-w-0">
+                                <span className="truncate block">{workout.title || workout.name || 'Workout'}</span>
+                              </h3>
+                            </div>
+
+                            <div className="space-y-2 mb-3">
+                              {/* Handle new structure */}
+                              {workout.workoutElements && workout.workoutElements.length > 0 ? (
+                                <>
+                                  {workout.scoreElements && workout.scoreElements.length > 0 && (
+                                    <span className="inline-block bg-cf-red text-white text-xs px-2 py-1 rounded uppercase tracking-wider">
+                                      {workout.scoreElements[0].type}
+                                    </span>
+                                  )}
+                                  {workout.scoreElements && workout.scoreElements.some(score => score.metadata?.rounds) && (
+                                    <span className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded ml-2">
+                                      {Math.max(...workout.scoreElements.map(s => s.metadata?.rounds || 0))} rounds
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {/* Handle old structure */}
+                                  {workout.extractedData.type !== 'unknown' && (
+                                    <span className="inline-block bg-cf-red text-white text-xs px-2 py-1 rounded uppercase tracking-wider">
+                                      {workout.extractedData.type}
+                                    </span>
+                                  )}
+                                  {workout.extractedData.rounds && (
+                                    <span className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-1 rounded ml-2">
+                                      {workout.extractedData.rounds} rounds
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+
+                            {workout.description && (
+                              <div className="mb-3">
+                                <p className="text-sm text-gray-600 italic line-clamp-2">
+                                  {workout.description}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* Display movements - handle both structures */}
+                            {workout.workoutElements && workout.workoutElements.length > 0 ? (
+                              <div>
+                                <p className="text-sm text-gray-600 line-clamp-2">
+                                  {workout.workoutElements
+                                    .filter(el => el.type === 'movement' && el.movement?.exercise)
+                                    .map(el => el.movement!.exercise)
+                                    .join(' • ')}
+                                </p>
+                              </div>
+                            ) : workout.extractedData.movements.length > 0 && (
+                              <div>
+                                <p className="text-sm text-gray-600 line-clamp-2">
+                                  {workout.extractedData.movements.join(' • ')}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Movement Analysis Section */}
         {workouts.length > 0 && (

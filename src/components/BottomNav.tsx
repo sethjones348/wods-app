@@ -1,9 +1,53 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { getUnreadCount } from '../services/notificationService';
+import { supabase } from '../lib/supabase';
 
 export default function BottomNav() {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Load unread notification count
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      setUnreadCount(0);
+      return;
+    }
+
+    const loadUnreadCount = async () => {
+      try {
+        const count = await getUnreadCount();
+        setUnreadCount(count);
+      } catch (err) {
+        console.error('Failed to load unread count:', err);
+      }
+    };
+
+    loadUnreadCount();
+
+    // Subscribe to real-time notification updates
+    const channel = supabase
+      .channel('bottom-nav-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          loadUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isAuthenticated, user?.id]);
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -42,12 +86,19 @@ export default function BottomNav() {
       isPrimary: true, // Make this button stand out like Strava's Record button
     },
     {
-      path: '/friends',
-      label: 'Friends',
+      path: '/notifications',
+      label: 'Activity',
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
+        <div className="relative">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-cf-red text-[10px] font-bold text-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </div>
       ),
     },
     {

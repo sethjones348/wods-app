@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { WorkoutExtraction, WorkoutElement, ScoreElement, ScoreName } from '../types';
 import { getAllStandardMovements, validateAndNormalizeMovement } from '../utils/movementNormalizer';
 import { formatSecondsToTime, parseTimeToSeconds } from '../utils/timeUtils';
@@ -9,6 +9,7 @@ interface WorkoutEditorProps {
   imageUrl: string;
   onSave: (data: WorkoutExtraction) => void;
   onCancel: () => void;
+  onExtractionChange?: (data: WorkoutExtraction) => void;
   isSaving?: boolean;
 }
 
@@ -24,6 +25,7 @@ export default function WorkoutEditor({
   imageUrl,
   onSave,
   onCancel,
+  onExtractionChange,
   isSaving = false,
 }: WorkoutEditorProps) {
   const [formData, setFormData] = useState<WorkoutExtraction>({
@@ -36,8 +38,10 @@ export default function WorkoutEditor({
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [timeInputValue, setTimeInputValue] = useState('');
   const [showAddElementMenu, setShowAddElementMenu] = useState(false);
+  const isUpdatingFromExtraction = useRef(false);
 
   useEffect(() => {
+    isUpdatingFromExtraction.current = true;
     setFormData({
       ...extraction,
       privacy: extraction.privacy || 'public',
@@ -52,7 +56,32 @@ export default function WorkoutEditor({
       hours = hours ? hours : 12;
       setTimeInputValue(`${hours}:${String(minutes).padStart(2, '0')} ${ampm}`);
     }
+    // Reset flag after state update
+    setTimeout(() => {
+      isUpdatingFromExtraction.current = false;
+    }, 0);
   }, [extraction]);
+
+  // Track previous formData to prevent unnecessary updates
+  const prevFormDataRef = useRef<string>('');
+  
+  // Notify parent whenever formData changes (but skip when updating from extraction prop)
+  useEffect(() => {
+    if (onExtractionChange && !isUpdatingFromExtraction.current) {
+      // Only update if formData actually changed (deep comparison)
+      const currentFormDataString = JSON.stringify({
+        workout: formData.workout,
+        score: formData.score,
+        title: formData.title,
+        description: formData.description,
+      });
+      
+      if (currentFormDataString !== prevFormDataRef.current) {
+        prevFormDataRef.current = currentFormDataString;
+        onExtractionChange(formData);
+      }
+    }
+  }, [formData, onExtractionChange]);
 
   // Date/time helpers
   const getLocalDateString = (isoString: string): string => {

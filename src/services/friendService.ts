@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase';
 import { sendFriendInviteEmail } from './emailService';
-import { getUserProfile } from './userService';
+import { getUserProfile, getUserProfileByUsername } from './userService';
 
 export interface FriendRequest {
   id: string;
   fromUserId: string;
-  toEmail: string;
+  toUsername: string | null; // Username/handle (replaces toEmail)
+  toEmail: string | null; // Kept for backward compatibility
   toUserId: string | null;
   status: 'pending' | 'accepted' | 'declined';
   createdAt: string;
@@ -15,12 +16,14 @@ export interface FriendRequest {
     id: string;
     name: string;
     email: string;
+    username?: string;
     picture?: string;
   };
   toUser?: {
     id: string;
     name: string;
     email: string;
+    username?: string;
     picture?: string;
   };
 }
@@ -35,71 +38,68 @@ export interface Follow {
     id: string;
     name: string;
     email: string;
+    username?: string;
     picture?: string;
   };
   follower?: {
     id: string;
     name: string;
     email: string;
+    username?: string;
     picture?: string;
   };
 }
 
 /**
- * Send a friend request by email
+ * Send a friend request by username
  */
-export async function sendFriendRequest(toEmail: string): Promise<FriendRequest> {
+export async function sendFriendRequest(toUsername: string): Promise<FriendRequest> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('User must be authenticated to send friend requests');
   }
 
-  // Check if user exists with this email
-  const { data: toUser } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', toEmail.toLowerCase().trim())
+  const normalizedUsername = toUsername.toLowerCase().trim();
+  
+  if (!normalizedUsername) {
+    throw new Error('Username is required');
+  }
+
+  // Check if user exists with this username
+  const toUser = await getUserProfileByUsername(normalizedUsername);
+
+  if (!toUser) {
+    throw new Error('User not found with this username');
+  }
+
+  // Can't send friend request to yourself
+  if (toUser.id === user.id) {
+    throw new Error('You cannot send a friend request to yourself');
+  }
+
+  // Check if already following (if following, can't send request)
+  const { data: existingFollow } = await supabase
+    .from('follows')
+    .select('*')
+    .eq('follower_id', user.id)
+    .eq('following_id', toUser.id)
     .single();
 
-  // Check if there's a pending friend request OR if already following
-  if (toUser) {
-    // Check if already following (if following, can't send request)
-    const { data: existingFollow } = await supabase
-      .from('follows')
-      .select('*')
-      .eq('follower_id', user.id)
-      .eq('following_id', toUser.id)
-      .single();
+  if (existingFollow) {
+    throw new Error('You are already following this user');
+  }
 
-    if (existingFollow) {
-      throw new Error('You are already following this user');
-    }
+  // Check if there's a pending friend request (only pending, not accepted/declined)
+  const { data: pendingRequest } = await supabase
+    .from('friend_requests')
+    .select('*')
+    .eq('from_user_id', user.id)
+    .eq('to_user_id', toUser.id)
+    .eq('status', 'pending')
+    .single();
 
-    // Check if there's a pending friend request (only pending, not accepted/declined)
-    const { data: pendingRequest } = await supabase
-      .from('friend_requests')
-      .select('*')
-      .eq('from_user_id', user.id)
-      .eq('to_user_id', toUser.id)
-      .eq('status', 'pending')
-      .single();
-
-    if (pendingRequest) {
-      throw new Error('Friend request already sent to this user');
-    }
-  } else {
-    // If user doesn't exist yet, check for pending request by email
-    const { data: pendingRequest } = await supabase
-      .from('friend_requests')
-      .select('*')
-      .eq('from_user_id', user.id)
-      .eq('to_email', toEmail.toLowerCase().trim())
-      .eq('status', 'pending')
-      .single();
-
-    if (pendingRequest) {
-      throw new Error('Friend request already sent to this email');
-    }
+  if (pendingRequest) {
+    throw new Error('Friend request already sent to this user');
   }
 
   // Check if there's an existing request (any status) - if so, update it instead of inserting
@@ -108,7 +108,7 @@ export async function sendFriendRequest(toEmail: string): Promise<FriendRequest>
     .from('friend_requests')
     .select('*')
     .eq('from_user_id', user.id)
-    .eq('to_email', toEmail.toLowerCase().trim())
+    .eq('to_username', normalizedUsername)
     .single();
 
   let data;
@@ -120,7 +120,7 @@ export async function sendFriendRequest(toEmail: string): Promise<FriendRequest>
       .from('friend_requests')
       .update({
         status: 'pending',
-        to_user_id: toUser?.id || existingRequest.to_user_id || null,
+        to_user_id: toUser.id,
         updated_at: new Date().toISOString(),
       })
       .eq('id', existingRequest.id)
@@ -135,8 +135,8 @@ export async function sendFriendRequest(toEmail: string): Promise<FriendRequest>
       .from('friend_requests')
       .insert({
         from_user_id: user.id,
-        to_email: toEmail.toLowerCase().trim(),
-        to_user_id: toUser?.id || null,
+        to_username: normalizedUsername,
+        to_user_id: toUser.id,
         status: 'pending',
       })
       .select()
@@ -153,9 +153,9 @@ export async function sendFriendRequest(toEmail: string): Promise<FriendRequest>
   // Send email notification (don't fail if email fails)
   try {
     const inviterProfile = await getUserProfile(user.id);
-    if (inviterProfile) {
+    if (inviterProfile && toUser.email) {
       await sendFriendInviteEmail(
-        toEmail.toLowerCase().trim(),
+        toUser.email,
         inviterProfile.name,
         inviterProfile.email
       );
@@ -168,6 +168,7 @@ export async function sendFriendRequest(toEmail: string): Promise<FriendRequest>
   return {
     id: data.id,
     fromUserId: data.from_user_id,
+    toUsername: data.to_username,
     toEmail: data.to_email,
     toUserId: data.to_user_id,
     status: data.status,
@@ -185,15 +186,31 @@ export async function getPendingFriendRequests(): Promise<FriendRequest[]> {
     throw new Error('User must be authenticated');
   }
 
-  // Get requests sent TO the current user (by email or user_id)
-  const { data, error } = await supabase
+  // Get current user's profile to check username
+  const currentUserProfile = await getUserProfile(user.id);
+  const currentUsername = currentUserProfile?.username;
+
+  // Get requests sent TO the current user (by username or user_id)
+  // Support both username and email for backward compatibility
+  let query = supabase
     .from('friend_requests')
     .select(`
       *,
-      from_user:users!friend_requests_from_user_id_fkey(id, name, email, picture)
+      from_user:users!friend_requests_from_user_id_fkey(id, name, email, username, picture)
     `)
-    .or(`to_email.eq.${user.email},to_user_id.eq.${user.id}`)
-    .eq('status', 'pending')
+    .eq('status', 'pending');
+
+  // Build OR condition for matching requests
+  const conditions: string[] = [`to_user_id.eq.${user.id}`];
+  if (currentUsername) {
+    conditions.push(`to_username.eq.${currentUsername}`);
+  }
+  if (user.email) {
+    conditions.push(`to_email.eq.${user.email}`);
+  }
+
+  const { data, error } = await query
+    .or(conditions.join(','))
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -207,6 +224,7 @@ export async function getPendingFriendRequests(): Promise<FriendRequest[]> {
   return data.map((req) => ({
     id: req.id,
     fromUserId: req.from_user_id,
+    toUsername: req.to_username,
     toEmail: req.to_email,
     toUserId: req.to_user_id,
     status: req.status,
@@ -216,6 +234,7 @@ export async function getPendingFriendRequests(): Promise<FriendRequest[]> {
       id: req.from_user.id,
       name: req.from_user.name,
       email: req.from_user.email,
+      username: req.from_user.username,
       picture: req.from_user.picture,
     } : undefined,
   }));
@@ -234,7 +253,7 @@ export async function getSentFriendRequests(): Promise<FriendRequest[]> {
     .from('friend_requests')
     .select(`
       *,
-      to_user:users!friend_requests_to_user_id_fkey(id, name, email, picture)
+      to_user:users!friend_requests_to_user_id_fkey(id, name, email, username, picture)
     `)
     .eq('from_user_id', user.id)
     .eq('status', 'pending')
@@ -251,6 +270,7 @@ export async function getSentFriendRequests(): Promise<FriendRequest[]> {
   return data.map((req) => ({
     id: req.id,
     fromUserId: req.from_user_id,
+    toUsername: req.to_username,
     toEmail: req.to_email,
     toUserId: req.to_user_id,
     status: req.status,
@@ -260,6 +280,7 @@ export async function getSentFriendRequests(): Promise<FriendRequest[]> {
       id: req.to_user.id,
       name: req.to_user.name,
       email: req.to_user.email,
+      username: req.to_user.username,
       picture: req.to_user.picture,
     } : undefined,
   }));
@@ -285,10 +306,15 @@ export async function acceptFriendRequest(requestId: string): Promise<void> {
     throw new Error(`Friend request not found: ${fetchError?.message || 'Unknown error'}`);
   }
 
+  // Get current user's profile to check username
+  const currentUserProfile = await getUserProfile(user.id);
+  const currentUsername = currentUserProfile?.username;
+
   // Verify this request is for the current user
   const isForCurrentUser = 
-    request.to_email.toLowerCase() === user.email?.toLowerCase() ||
-    request.to_user_id === user.id;
+    request.to_user_id === user.id ||
+    (currentUsername && request.to_username?.toLowerCase() === currentUsername.toLowerCase()) ||
+    (user.email && request.to_email?.toLowerCase() === user.email.toLowerCase());
 
   if (!isForCurrentUser) {
     throw new Error('Unauthorized to accept this friend request');
@@ -351,10 +377,15 @@ export async function declineFriendRequest(requestId: string): Promise<void> {
     throw new Error('Friend request not found');
   }
 
+  // Get current user's profile to check username
+  const currentUserProfile = await getUserProfile(user.id);
+  const currentUsername = currentUserProfile?.username;
+
   // Verify this request is for the current user
   const isForCurrentUser = 
-    request.to_email.toLowerCase() === user.email?.toLowerCase() ||
-    request.to_user_id === user.id;
+    request.to_user_id === user.id ||
+    (currentUsername && request.to_username?.toLowerCase() === currentUsername.toLowerCase()) ||
+    (user.email && request.to_email?.toLowerCase() === user.email.toLowerCase());
 
   if (!isForCurrentUser) {
     throw new Error('Unauthorized to decline this friend request');
@@ -384,7 +415,7 @@ export async function getFollowing(): Promise<Follow[]> {
     .from('follows')
     .select(`
       *,
-      following:users!follows_following_id_fkey(id, name, email, picture)
+      following:users!follows_following_id_fkey(id, name, email, username, picture)
     `)
     .eq('follower_id', user.id)
     .order('created_at', { ascending: false });
@@ -406,6 +437,7 @@ export async function getFollowing(): Promise<Follow[]> {
       id: follow.following.id,
       name: follow.following.name,
       email: follow.following.email,
+      username: follow.following.username,
       picture: follow.following.picture,
     } : undefined,
   }));
@@ -424,7 +456,7 @@ export async function getFollowers(): Promise<Follow[]> {
     .from('follows')
     .select(`
       *,
-      follower:users!follows_follower_id_fkey(id, name, email, picture)
+      follower:users!follows_follower_id_fkey(id, name, email, username, picture)
     `)
     .eq('following_id', user.id)
     .order('created_at', { ascending: false });
@@ -446,6 +478,7 @@ export async function getFollowers(): Promise<Follow[]> {
       id: follow.follower.id,
       name: follow.follower.name,
       email: follow.follower.email,
+      username: follow.follower.username,
       picture: follow.follower.picture,
     } : undefined,
   }));

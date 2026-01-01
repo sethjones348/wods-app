@@ -4,6 +4,7 @@ import { Workout } from '../types';
 import { format, formatDistanceToNow } from 'date-fns';
 import FistBumpButton from './FistBumpButton';
 import FeedCommentsSection from './FeedCommentsSection';
+import { useFeedPhotoHeight } from '../hooks/useFeedPhotoHeight';
 
 interface FeedWorkoutCardProps {
   workout: Workout;
@@ -19,6 +20,7 @@ export default function FeedWorkoutCard({ workout, user }: FeedWorkoutCardProps)
   const [commentCount, setCommentCount] = useState(0);
   const workoutDate = new Date(workout.date);
   const timeAgo = formatDistanceToNow(workoutDate, { addSuffix: true });
+  const maxPhotoHeight = useFeedPhotoHeight();
   
   // Ensure we have user data or use fallback
   const displayName = user?.name || 'Unknown User';
@@ -74,14 +76,18 @@ export default function FeedWorkoutCard({ workout, user }: FeedWorkoutCardProps)
         </span>
       </div>
 
-      {/* Workout Image - Full picture */}
+      {/* Workout Image - Resized for uniform text height */}
       {workout.imageUrl && (
         <Link to={`/workout/${workout.id}`} className="block">
-          <div className="w-full bg-gray-100 overflow-hidden">
+          <div 
+            className="w-full bg-white overflow-hidden flex items-center justify-center"
+            style={{ height: `${maxPhotoHeight}px` }}
+          >
             <img
               src={workout.imageUrl}
               alt={workout.name || 'Workout'}
-              className="w-full h-auto object-contain hover:opacity-95 transition-opacity"
+              className="max-w-full max-h-full w-auto h-auto object-contain hover:opacity-95 transition-opacity"
+              style={{ maxHeight: `${maxPhotoHeight}px`, maxWidth: '100%' }}
             />
           </div>
         </Link>

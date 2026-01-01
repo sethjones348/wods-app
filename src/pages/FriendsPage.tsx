@@ -16,7 +16,7 @@ import {
 export default function FriendsPage() {
   const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'invite' | 'pending' | 'sent' | 'following'>('invite');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
@@ -92,13 +92,13 @@ export default function FriendsPage() {
 
   const handleSendRequest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!username.trim()) return;
 
     setIsSending(true);
     setError(null);
     try {
-      await sendFriendRequest(email);
-      setEmail('');
+      await sendFriendRequest(username);
+      setUsername('');
       alert('Friend request sent!');
       // Refresh all counts to update tab badges
       await loadAllCounts();
@@ -215,25 +215,28 @@ export default function FriendsPage() {
           <div className="bg-white md:border md:border-gray-200 md:rounded-lg md:shadow-md p-4 md:p-6 mx-0 md:mx-0">
             <h2 className="text-xl font-heading font-bold mb-4">Invite a Friend</h2>
             <p className="text-gray-600 mb-4">
-              Enter your friend's email address to send them a friend request. They'll be able to see your public workouts in their feed once they accept.
+              Enter your friend's username to send them a friend request. They'll be able to see your public workouts in their feed once they accept.
             </p>
             <form onSubmit={handleSendRequest} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold uppercase tracking-wider mb-2">
-                  Email Address
+                  Username
                 </label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="friend@example.com"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="username"
                   required
+                  pattern="[a-zA-Z0-9_]+"
+                  title="Username can only contain letters, numbers, and underscores"
                   className="w-full px-4 py-2 border-2 border-gray-200 rounded focus:border-cf-red outline-none min-h-[44px]"
                 />
+                <p className="text-xs text-gray-500 mt-1">Username can only contain letters, numbers, and underscores</p>
               </div>
               <button
                 type="submit"
-                disabled={isSending || !email.trim()}
+                disabled={isSending || !username.trim()}
                 className="bg-cf-red text-white px-6 py-2 rounded font-semibold uppercase tracking-wider hover:bg-cf-red-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
               >
                 {isSending ? 'Sending...' : 'Send Friend Request'}
@@ -275,8 +278,8 @@ export default function FriendsPage() {
                         </div>
                       )}
                       <div>
-                        <p className="font-semibold">{request.fromUser?.name || request.fromUser?.email || 'Unknown User'}</p>
-                        <p className="text-sm text-gray-600">{request.fromUser?.email || request.toEmail}</p>
+                        <p className="font-semibold">{request.fromUser?.name || request.fromUser?.username || 'Unknown User'}</p>
+                        <p className="text-sm text-gray-600">@{request.fromUser?.username || request.fromUser?.email || request.toUsername || 'unknown'}</p>
                       </div>
                     </div>
                     <div className="flex space-x-2 flex-shrink-0">
@@ -328,13 +331,13 @@ export default function FriendsPage() {
                       ) : (
                         <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cf-red to-cf-red-hover flex items-center justify-center border-2 border-gray-200">
                           <span className="text-white text-sm font-bold">
-                            {request.toUser?.name?.[0]?.toUpperCase() || request.toEmail?.[0]?.toUpperCase() || '?'}
+                            {request.toUser?.name?.[0]?.toUpperCase() || request.toUsername?.[0]?.toUpperCase() || '?'}
                           </span>
                         </div>
                       )}
                       <div>
-                        <p className="font-semibold">{request.toUser?.name || request.toEmail}</p>
-                        <p className="text-sm text-gray-600">{request.toEmail}</p>
+                        <p className="font-semibold">{request.toUser?.name || request.toUsername || 'Unknown User'}</p>
+                        <p className="text-sm text-gray-600">@{request.toUser?.username || request.toUsername || request.toEmail || 'unknown'}</p>
                         {request.toUser && (
                           <Link
                             to={`/profile/${request.toUser.id}`}
@@ -392,7 +395,7 @@ export default function FriendsPage() {
                         >
                           {follow.following?.name || 'Unknown User'}
                         </Link>
-                        <p className="text-xs md:text-sm text-gray-600 truncate">{follow.following?.email}</p>
+                        <p className="text-xs md:text-sm text-gray-600 truncate">@{follow.following?.username || follow.following?.email || 'unknown'}</p>
                       </div>
                     </div>
                     <button
