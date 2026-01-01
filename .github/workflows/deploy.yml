@@ -35,6 +35,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run tests
+        run: npm test
+
       - name: Verify secrets are set
         run: |
           if [ -z "${{ secrets.VITE_GOOGLE_CLIENT_ID }}" ]; then

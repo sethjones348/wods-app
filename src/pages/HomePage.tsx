@@ -86,6 +86,17 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Footer Section with Privacy Link */}
+      <section className="py-8 bg-gray-50 border-t">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-gray-600 text-sm">
+            <Link to="/privacy" className="text-cf-red hover:underline">
+              Privacy Policy
+            </Link>
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

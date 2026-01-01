@@ -12,6 +12,7 @@ import FeedPage from './pages/FeedPage';
 import NotificationsPage from './pages/NotificationsPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import PrivacyPage from './pages/PrivacyPage';
 
 // Dynamically determine base path based on current location
 // If we're on GitHub Pages subdirectory, use that; otherwise use root
@@ -73,6 +74,7 @@ function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/friends" element={<FriendsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
               <Route 
                 path="/admin" 
                 element={

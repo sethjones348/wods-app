@@ -30,9 +30,9 @@ The function accepts POST requests with:
 - `to`: Email address to send to
 - `subject`: Email subject
 - `html`: HTML email content
-- `from`: (optional) From address, defaults to "WODsApp <noreply@samfit.xyz>"
+- `from`: (optional) From address, defaults to "WODsApp <noreply@wodsapp.online>"
   
-**Note**: Make sure to add and verify `samfit.xyz` at https://resend.com/domains before using this function.
+**Note**: Make sure to add and verify `wodsapp.online` at https://resend.com/domains before using this function.
 
 ## Alternative: Using Other Email Services
 
