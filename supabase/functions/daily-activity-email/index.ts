@@ -244,12 +244,12 @@ function generateEmailHTML(userName: string, activity: any): string {
           ` : ''}
 
           <div style="text-align: center; margin-top: 30px;">
-            <a href="https://samfit.xyz" class="button">View Feed</a>
+            <a href="https://wodsapp.online" class="button">View Feed</a>
           </div>
 
           <div class="footer">
             <p>You're receiving this because you have email notifications enabled.</p>
-            <p><a href="https://samfit.xyz/profile" style="color: #D21034;">Manage notification settings</a></p>
+            <p><a href="https://wodsapp.online/profile" style="color: #D21034;">Manage notification settings</a></p>
             <p>&copy; ${new Date().getFullYear()} WODsApp. All rights reserved.</p>
           </div>
         </div>

@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function Footer() {
   return (
     <footer className="bg-cf-dark text-white py-12">
@@ -38,14 +40,26 @@ export default function Footer() {
             <h3 className="font-heading text-lg font-bold mb-4 uppercase tracking-wider">
               Support
             </h3>
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 text-sm mb-4">
               For questions or issues, check the documentation or open an issue on GitHub.
             </p>
+            <ul className="space-y-2">
+              <li>
+                <Link to="/privacy" className="text-gray-400 hover:text-cf-red transition-colors text-sm">
+                  Privacy Policy
+                </Link>
+              </li>
+            </ul>
           </div>
         </div>
         <div className="border-t border-gray-800 pt-8 text-center">
           <p className="text-gray-400 text-sm">
             © {new Date().getFullYear()} WODsApp. All rights reserved.
+          </p>
+          <p className="text-gray-500 text-xs mt-2">
+            <Link to="/privacy" className="hover:text-cf-red transition-colors">
+              Privacy Policy
+            </Link>
           </p>
         </div>
       </div>

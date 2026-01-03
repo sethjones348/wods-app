@@ -28,7 +28,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
       to: options.to,
       subject: options.subject,
       html: options.html,
-      from: options.from || 'WODsApp <noreply@samfit.xyz>',
+      from: options.from || 'WODsApp <noreply@wodsapp.online>',
     },
   });
 
@@ -117,7 +117,7 @@ export async function sendFriendInviteEmail(
             <li>Connect with friends and see their workouts</li>
             <li>Share your fitness journey</li>
           </ul>
-          <a href="https://samfit.xyz" class="button">Join WODsApp</a>
+          <a href="https://wodsapp.online" class="button">Join WODsApp</a>
           <div class="footer">
             <p>If you didn't expect this invitation, you can safely ignore this email.</p>
             <p>&copy; ${new Date().getFullYear()} WODsApp. All rights reserved.</p>
@@ -257,12 +257,12 @@ export async function sendDailyActivityEmail(
           ` : ''}
 
           <div style="text-align: center; margin-top: 30px;">
-            <a href="https://samfit.xyz" class="button">View Feed</a>
+            <a href="https://wodsapp.online" class="button">View Feed</a>
           </div>
 
           <div class="footer">
             <p>You're receiving this because you have email notifications enabled.</p>
-            <p><a href="https://samfit.xyz/profile" style="color: #D21034;">Manage notification settings</a></p>
+            <p><a href="https://wodsapp.online/profile" style="color: #D21034;">Manage notification settings</a></p>
             <p>&copy; ${new Date().getFullYear()} WODsApp. All rights reserved.</p>
           </div>
         </div>
@@ -357,11 +357,11 @@ export async function sendReactionNotificationEmail(
           <p><strong>${reactorName}</strong> just gave you a fist bump on your workout:</p>
           <p style="font-size: 18px; font-weight: 600; color: #D21034; margin: 20px 0;">${workoutName || 'Your workout'}</p>
           <div style="text-align: center; margin-top: 30px;">
-            <a href="https://samfit.xyz/workout/${workoutId}" class="button">View Workout</a>
+            <a href="https://wodsapp.online/workout/${workoutId}" class="button">View Workout</a>
           </div>
           <div class="footer">
             <p>You're receiving this because you have email notifications enabled.</p>
-            <p><a href="https://samfit.xyz/profile" style="color: #D21034;">Manage notification settings</a></p>
+            <p><a href="https://wodsapp.online/profile" style="color: #D21034;">Manage notification settings</a></p>
             <p>&copy; ${new Date().getFullYear()} WODsApp. All rights reserved.</p>
           </div>
         </div>
@@ -455,11 +455,11 @@ export async function sendCommentNotificationEmail(
             <p style="margin: 0; font-style: italic;">"${commentText}"</p>
           </div>
           <div style="text-align: center; margin-top: 30px;">
-            <a href="https://samfit.xyz/workout/${workoutId}" class="button">View Comment</a>
+            <a href="https://wodsapp.online/workout/${workoutId}" class="button">View Comment</a>
           </div>
           <div class="footer">
             <p>You're receiving this because you have email notifications enabled.</p>
-            <p><a href="https://samfit.xyz/profile" style="color: #D21034;">Manage notification settings</a></p>
+            <p><a href="https://wodsapp.online/profile" style="color: #D21034;">Manage notification settings</a></p>
             <p>&copy; ${new Date().getFullYear()} WODsApp. All rights reserved.</p>
           </div>
         </div>

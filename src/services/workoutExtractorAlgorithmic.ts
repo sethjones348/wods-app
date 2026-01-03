@@ -199,14 +199,14 @@ Output only the extracted text with pipes added.`;
 
 For each line:
 - Prefix the line with one label: TITLE:, MOVEMENT:, INSTRUCTION:, or SCORE:.
--Insert vertical pipes (|) between logical text groups; amount ( number, distance, time, watts, etc) | movement (common CrossFit exercises) | scale (weight, height, distance). 
--Infer and insert missing or corrected information. Example: "3rvs" = "3 rounds" Example: lines with movement only may use amount from the line above. Example: line with amount only may be applied to lines below with movement only. Example: quotations = ditto of similar lines above.
+- Insert vertical pipes (|) between logical text groups; e.g., an amount ( number, rep scheme, distance, time, watts, etc) | a movement (common CrossFit exercises) | a scale (weight, height, distance). 
+- Infer and insert missing or corrected information. Example: "3rvs" = "3 rounds" Example: lines with movement only may use amount from the line above. Example: line with amount only may be applied to lines below with movement only. Example: quotations = ditto of similar lines above.
 - Text that is visually off to the side or oriented vertically should be output as its own line.
 
 Label definitions:
 - TITLE: workout name or main heading (as written on whiteboard)
-- MOVEMENT: reps, exercises, weights, units
-- INSTRUCTION: notes, rest, repeat, cues, descriptive text
+- MOVEMENT: reps, exercises, weights, units, reps, weights and units should be more numeric
+- INSTRUCTION: notes, rest, repeat, cues, descriptive text, these should be more readable
 - SCORE: times, rounds, + reps, dates, athlete scores
 
 Rules:
