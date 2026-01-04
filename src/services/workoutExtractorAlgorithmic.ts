@@ -199,15 +199,15 @@ Output only the extracted text with pipes added.`;
 
 For each line:
 - Prefix the line with one label: TITLE:, MOVEMENT:, INSTRUCTION:, or SCORE:.
-- Insert vertical pipes (|) between logical text groups; e.g., an amount ( number, rep scheme, distance, time, watts, etc) | a movement (common CrossFit exercises) | a scale (weight, height, distance). 
-- Infer and insert missing or corrected information. Example: "3rvs" = "3 rounds" Example: lines with movement only may use amount from the line above. Example: line with amount only may be applied to lines below with movement only. Example: quotations = ditto of similar lines above.
+- Insert vertical pipes (|) between logical text groups; e.g., an amount ( number, rep scheme, distance, time, watts, etc) | a movement (common CrossFit exercises) | a scale (weight, height, distance, cals, watts, etc). 
+- Infer and insert missing or corrected information. Example: "3rvs" = "3 rounds" Example: lines with no amount may use amount from the line above. Example: line with amount only may be applied to lines below with movement only. Example: quotations = ditto of similar lines above.
 - Text that is visually off to the side or oriented vertically should be output as its own line.
 
 Label definitions:
 - TITLE: workout name or main heading (as written on whiteboard)
-- MOVEMENT: reps, exercises, weights, units, reps, weights and units should be more numeric
+- MOVEMENT: reps, movements, exersizes, weights, units, reps, cals, watts, rpms, weights and units should be more numeric
 - INSTRUCTION: notes, rest, repeat, cues, descriptive text, these should be more readable
-- SCORE: times, rounds, + reps, dates, athlete scores
+- SCORE: times, rounds, + reps, dates, athlete scores, lines with weight only, lines with distance only, lines with cals only, lines with watts only, lines with rpm only
 
 Rules:
 - Choose exactly one label per line.
@@ -216,7 +216,7 @@ Rules:
 - No markdown
 - Plain text only
 
-Output nothing except the labeled, piped text, and add one additional line at the end - AITITLE: <generate a WOD title for this workout>.`;
+Output nothing except the labeled, piped text, and add one additional line at the end - AITITLE: <generate a WOD title for this workout that incudes movements and workout type (e.g. AMRAP, EMOM, For Time, Chipper, Ladder, Lift)>.`;
 }
 
 /**
@@ -568,6 +568,13 @@ async function extractTextWithGeminiAPI(imageBase64: string): Promise<OCRData> {
 
             rawText = result.response.text();
             usedModel = modelName;
+            
+            // Log raw Gemini response for debugging (only in development)
+            if (import.meta.env.DEV) {
+                console.log('🔍 [DEBUG] Raw Gemini Response:', rawText);
+                console.log('🔍 [DEBUG] Model used:', modelName);
+            }
+            
             break; // Success, exit model loop
         } catch (err) {
             const error = err instanceof Error ? err : new Error(String(err));
@@ -710,6 +717,12 @@ function processExtractedText(rawText: string): OCRData {
             lines: textLines, // Just the text lines (labels stripped)
             rawGeminiText: rawText, // Store raw text from Gemini/OpenAI for debugging
         };
+        
+        // Log processed text for debugging (only in development)
+        if (import.meta.env.DEV) {
+            console.log('🔍 [DEBUG] Processed Text Lines:', result.lines);
+            console.log('🔍 [DEBUG] Full Raw Gemini Text:', result.rawGeminiText);
+        }
 
         // Add labels if we have them
         if (hasLabels && labels.length > 0) {

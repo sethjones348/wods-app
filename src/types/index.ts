@@ -1,4 +1,13 @@
 // ============================================================================
+// EXTRACTION METHODS
+// ============================================================================
+
+/**
+ * Extraction method types
+ */
+export type ExtractionMethod = 'quick' | 'super';
+
+// ============================================================================
 // NEW STRUCTURE (Post-Migration)
 // ============================================================================
 
@@ -66,6 +75,7 @@ export interface ScoreElement {
 
 /**
  * New WorkoutExtraction structure - separates workout prescription from score/results
+ * Used by Quick Upload extraction method
  */
 export interface WorkoutExtraction {
   title: string; // Workout title (required)
@@ -76,6 +86,50 @@ export interface WorkoutExtraction {
   confidence: number; // 0-1 extraction certainty
   privacy?: 'public' | 'private'; // Privacy setting, defaults to 'public'
   rawGeminiText?: string; // Raw text extracted from Gemini API (for debugging and iteration)
+}
+
+// ============================================================================
+// SUPER UPLOAD STRUCTURE (Different data structure for Super Upload)
+// ============================================================================
+
+/**
+ * Super Upload extraction structure - enhanced/different structure for Super Upload method
+ * This structure uses a single "workout summary" section instead of separate workout and score sections
+ */
+export interface SuperWorkoutSummaryElement {
+  id: string; // Unique identifier
+  type: 'movement' | 'lift' | 'time'; // Type of summary element
+  text: string; // Original text line from Gemini
+  // Movement fields
+  movement?: {
+    reps: number; // Total number of reps completed for this movement
+    name: string; // Movement name
+    scale?: string; // Weight, height, distance, etc.
+  };
+  // Lift fields
+  lift?: {
+    reps: number; // Reps for the set/round with highest weight
+    name: string; // Lift movement name
+    scale?: string; // Weight used
+  };
+  // Time fields
+  time?: {
+    work: number | null; // Total working time in seconds
+    rest: number | null; // Total rest time in seconds
+  };
+}
+
+/**
+ * Super Upload extraction structure
+ */
+export interface SuperWorkoutExtraction {
+  title: string; // Workout title from TITLE line
+  description?: string; // Workout description from DESCRIPTION line
+  date?: string; // ISO-8601 date string
+  workoutSummary: SuperWorkoutSummaryElement[]; // All summary elements (movements, lifts, time)
+  confidence: number; // 0-1 extraction certainty
+  privacy?: 'public' | 'private'; // Privacy setting, defaults to 'public'
+  rawGeminiText?: string; // Raw text extracted from Gemini API
 }
 
 // ============================================================================

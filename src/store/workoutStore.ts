@@ -1,15 +1,79 @@
 import { create } from 'zustand';
-import { Workout, WorkoutExtraction, OldWorkoutExtraction } from '../types';
+import { Workout, WorkoutExtraction, OldWorkoutExtraction, SuperWorkoutExtraction } from '../types';
 import { supabaseStorage } from '../services/supabaseStorage';
 import { workoutCache } from '../services/workoutCache';
 import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Convert SuperWorkoutExtraction to WorkoutExtraction for saving
+ */
+function convertSuperToWorkoutExtraction(superExtraction: SuperWorkoutExtraction & { imageUrl: string }): WorkoutExtraction & { imageUrl: string } {
+  const workout: WorkoutExtraction['workout'] = [];
+  const score: WorkoutExtraction['score'] = [];
+
+  // Convert workout summary elements to workout and score elements
+  for (const element of superExtraction.workoutSummary) {
+    if (element.type === 'movement' && element.movement) {
+      workout.push({
+        type: 'movement',
+        movement: {
+          amount: element.movement.reps.toString(),
+          exercise: element.movement.name,
+          unit: element.movement.scale || null,
+        },
+      });
+    } else if (element.type === 'lift' && element.lift) {
+      workout.push({
+        type: 'movement',
+        movement: {
+          amount: element.lift.reps.toString(),
+          exercise: element.lift.name,
+          unit: element.lift.scale || null,
+        },
+      });
+      // Also add as a score element for weight tracking
+      score.push({
+        name: 'Weight',
+        type: 'weight',
+        value: element.lift.scale || '',
+        metadata: {
+          weight: parseFloat(element.lift.scale || '0') || undefined,
+        },
+      });
+    } else if (element.type === 'time' && element.time) {
+      // Add time as score elements
+      if (element.time.work !== null) {
+        score.push({
+          name: 'Finish Time',
+          type: 'time',
+          value: `${Math.floor(element.time.work / 60)}:${String(element.time.work % 60).padStart(2, '0')}`,
+          metadata: {
+            timeInSeconds: element.time.work,
+          },
+        });
+      }
+    }
+  }
+
+  return {
+    title: superExtraction.title,
+    description: superExtraction.description,
+    workout,
+    score,
+    date: superExtraction.date,
+    confidence: superExtraction.confidence,
+    privacy: superExtraction.privacy || 'public',
+    rawGeminiText: superExtraction.rawGeminiText,
+    imageUrl: superExtraction.imageUrl,
+  };
+}
 
 interface WorkoutStore {
   workouts: Workout[];
   isLoading: boolean;
   error: string | null;
   loadWorkouts: (userId: string) => Promise<void>;
-  saveWorkout: (extraction: (WorkoutExtraction | OldWorkoutExtraction) & { imageUrl: string }, userId: string) => Promise<void>;
+  saveWorkout: (extraction: (WorkoutExtraction | SuperWorkoutExtraction | OldWorkoutExtraction) & { imageUrl: string }, userId: string) => Promise<string>;
   updateWorkout: (id: string, extraction: (WorkoutExtraction | OldWorkoutExtraction) & { imageUrl: string }, userId: string) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
   syncFromSupabase: (userId: string) => Promise<void>;
@@ -99,15 +163,27 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
     }, 60000); // 60 second timeout for entire save operation
 
     try {
+      // Check if this is Super Upload structure
+      const isSuperUpload = 'workoutSummary' in extraction && Array.isArray(extraction.workoutSummary);
+      
+      // Convert Super Upload to WorkoutExtraction format
+      let extractionToSave: (WorkoutExtraction | OldWorkoutExtraction) & { imageUrl: string };
+      if (isSuperUpload) {
+        extractionToSave = convertSuperToWorkoutExtraction(extraction as SuperWorkoutExtraction & { imageUrl: string });
+      } else {
+        extractionToSave = extraction as (WorkoutExtraction | OldWorkoutExtraction) & { imageUrl: string };
+      }
+
       // Check if this is new structure (has workout and score arrays)
-      const isNewStructure = 'workout' in extraction && 'score' in extraction &&
-        Array.isArray(extraction.workout) && Array.isArray(extraction.score);
+      const isNewStructure = 'workout' in extractionToSave && 'score' in extractionToSave &&
+        Array.isArray(extractionToSave.workout) && Array.isArray(extractionToSave.score);
 
       if (isNewStructure) {
         // New structure - save directly
+        const workoutExtraction = extractionToSave as WorkoutExtraction & { imageUrl: string };
         const workoutId = uuidv4();
         const workoutToSave = {
-          ...extraction,
+          ...workoutExtraction,
           id: workoutId,
         };
 
@@ -118,31 +194,35 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
         // TODO: Update cache and state to use new structure
         const workout: Workout = {
           id: workoutId,
-          name: extraction.title || 'Workout',
-          date: extraction.date || new Date().toISOString(),
+          name: workoutExtraction.title || 'Workout',
+          date: workoutExtraction.date || new Date().toISOString(),
           rawText: [], // Will be generated from structured data
-          privacy: extraction.privacy || 'public',
+          privacy: workoutExtraction.privacy || 'public',
           extractedData: {
             type: 'unknown', // Not applicable in new structure
             rounds: null,
-            movements: extraction.workout
+            movements: workoutExtraction.workout
               .filter((el: any) => el.type === 'movement' && el.movement)
               .map((el: any) => {
                 const m = el.movement;
                 return m.unit ? `${m.amount} ${m.exercise} ${m.unit}` : `${m.amount} ${m.exercise}`;
               }),
-            times: extraction.score
+            times: workoutExtraction.score
               .filter((s: any) => s.type === 'time' && s.metadata?.timeInSeconds)
               .map((s: any) => s.metadata.timeInSeconds),
-            reps: extraction.score
+            reps: workoutExtraction.score
               .filter((s: any) => s.type === 'reps' && s.metadata?.totalReps)
               .map((s: any) => s.metadata.totalReps),
           },
-          imageUrl: extraction.imageUrl,
+          imageUrl: workoutExtraction.imageUrl,
           metadata: {
-            confidence: extraction.confidence,
-            rawGeminiText: extraction.rawGeminiText,
+            confidence: workoutExtraction.confidence,
+            rawGeminiText: workoutExtraction.rawGeminiText,
           },
+          title: workoutExtraction.title,
+          description: workoutExtraction.description,
+          workoutElements: workoutExtraction.workout,
+          scoreElements: workoutExtraction.score,
         };
 
         await workoutCache.saveWorkout(workout);
@@ -152,6 +232,8 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
           workouts: [workout, ...state.workouts],
           isLoading: false,
         }));
+        
+        return workoutId;
       } else {
         // Old structure - convert to Workout format
         const oldExtraction = extraction as OldWorkoutExtraction & { imageUrl: string };
@@ -195,6 +277,8 @@ export const workoutStore = create<WorkoutStore>((set, get) => ({
           workouts: [workout, ...state.workouts],
           isLoading: false,
         }));
+        
+        return workout.id;
       }
     } catch (error) {
       clearTimeout(timeoutId);
