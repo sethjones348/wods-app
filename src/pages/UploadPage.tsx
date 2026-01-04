@@ -39,6 +39,15 @@ export default function UploadPage() {
         setExtraction(null);
         setSuperExtraction(null);
 
+        // Mobile Safari debugging
+        const isMobileSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) && /mobile/i.test(navigator.userAgent);
+        if (isMobileSafari) {
+            console.log('🍎 [Mobile Safari Debug] Starting extraction with Mobile Safari');
+            console.log('🍎 [Mobile Safari Debug] Image size:', imageBase64.length);
+            console.log('🍎 [Mobile Safari Debug] Extraction method:', extractionMethod);
+            console.log('🍎 [Mobile Safari Debug] User Agent:', navigator.userAgent);
+        }
+
         try {
             const result = await workoutExtractor.extract(imageBase64, extractionMethod);
             
@@ -58,8 +67,27 @@ export default function UploadPage() {
                 });
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to extract workout data');
-            console.error('Extraction error:', err);
+            const errorMessage = err instanceof Error ? err.message : 'Failed to extract workout data';
+            
+            // Mobile Safari specific error handling
+            const isMobileSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) && /mobile/i.test(navigator.userAgent);
+            
+            if (isMobileSafari) {
+                console.error('🍎 [Mobile Safari Error] Extraction failed:', errorMessage);
+                console.error('🍎 [Mobile Safari Error] Full error:', err);
+                
+                // Provide more helpful error messages for mobile Safari
+                if (errorMessage.includes('timeout') || errorMessage.includes('empty')) {
+                    setError('Mobile Safari: Request timed out. Please try again with a smaller image or use manual entry.');
+                } else if (errorMessage.includes('compression') || errorMessage.includes('Canvas')) {
+                    setError('Mobile Safari: Image processing failed. Please try taking a clearer photo or use manual entry.');
+                } else {
+                    setError(`Mobile Safari extraction issue. Try manual entry or a different browser. (${errorMessage})`);
+                }
+            } else {
+                setError(errorMessage);
+                console.error('Extraction error:', err);
+            }
         } finally {
             setIsExtracting(false);
         }

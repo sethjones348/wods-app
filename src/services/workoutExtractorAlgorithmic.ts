@@ -566,13 +566,41 @@ async function extractTextWithGeminiAPI(imageBase64: string): Promise<OCRData> {
                 throw new Error('Failed to generate content after retries');
             }
 
-            rawText = result.response.text();
-            usedModel = modelName;
+            // Extract response text with mobile Safari error handling
+            try {
+                rawText = result.response.text();
+            } catch (responseError) {
+                console.error('❌ [Mobile Safari] Failed to extract response text:', responseError);
+                throw new Error(`Mobile Safari response extraction failed: ${responseError instanceof Error ? responseError.message : String(responseError)}`);
+            }
             
-            // Log raw Gemini response for debugging (only in development)
+            // Validate response text for mobile Safari issues
+            if (!rawText || typeof rawText !== 'string') {
+                console.error('❌ [Mobile Safari] Invalid response text:', { rawText, type: typeof rawText });
+                throw new Error('Mobile Safari: Invalid or empty response from Gemini');
+            }
+            
+            // Check for common mobile Safari response issues (empty string)
+            if (rawText.length === 0) {
+                console.error('❌ [Mobile Safari] Empty response from Gemini');
+                throw new Error('Mobile Safari: Empty response from Gemini API');
+            }
+            
+            usedModel = modelName;
+             
+            // Log raw Gemini response for debugging (enhanced for mobile Safari)
             if (import.meta.env.DEV) {
                 console.log('🔍 [DEBUG] Raw Gemini Response:', rawText);
                 console.log('🔍 [DEBUG] Model used:', modelName);
+                console.log('🔍 [DEBUG] Response length:', rawText.length);
+                console.log('🔍 [DEBUG] User Agent:', navigator.userAgent);
+                
+                // Additional mobile Safari debugging
+                if (/^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
+                    console.log('🔍 [Mobile Safari Debug] Detected Safari browser');
+                    console.log('🔍 [Mobile Safari Debug] Canvas support:', !!document.createElement('canvas').getContext);
+                    console.log('🔍 [Mobile Safari Debug] Image support:', !!document.createElement('img').naturalHeight);
+                }
             }
             
             break; // Success, exit model loop
