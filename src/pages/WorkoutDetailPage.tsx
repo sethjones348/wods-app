@@ -18,8 +18,9 @@ export default function WorkoutDetailPage() {
     const [isOwnWorkout, setIsOwnWorkout] = useState(false);
     const [showRawGeminiText, setShowRawGeminiText] = useState(false);
     
-    // Check if current user is sethjones348@gmail.com
-    const isDebugUser = user?.email === 'sethjones348@gmail.com';
+    // Check if current user is a debug user or in development mode
+    const debugEmails = ['sethjones348@gmail.com', 'samjones5308@gmail.com'];
+    const isDebugUser = user?.email && (debugEmails.includes(user.email) || import.meta.env.DEV);
 
     useEffect(() => {
         if (!id || !isAuthenticated) {
